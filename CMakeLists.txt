@@ -4,6 +4,7 @@ project(libgammon)
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_CXX_FLAGS "-std=c++17 -Wno-deprecated-declarations ${CMAKE_CXX_FLAGS}")
+set(CMAKE_C_FLAGS "-std=c17 -Wno-deprecated-declarations ${CMAKE_C_FLAGS}")
 
 # build library
 aux_source_directory(./backgammon src_libgammon)

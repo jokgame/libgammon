@@ -4,18 +4,18 @@
 /**
  * @brief 棋子颜色，注意，白色总是代表先手方。
  */
-static const int BACKGAMMON_NOCOLOR = 0;
-static const int BACKGAMMON_WHITE = 1;
-static const int BACKGAMMON_BLACK = 2;
+#define BACKGAMMON_NOCOLOR 0
+#define BACKGAMMON_WHITE 1
+#define BACKGAMMON_BLACK 2
 
 /**
  * @brief 错误码
  */
-static const int BACKGAMMON_OK = 0;                        /* 成功 */
-static const int BACKGAMMON_ERR_MOVE_EMPTY = 0;            /* 移动空位置 */
-static const int BACKGAMMON_ERR_MOVE_OPPONENT_CHECKER = 0; /* 移动敌方棋子 */
-static const int BACKGAMMON_ERR_MOVE_BAR_NEEDED = 0;       /* 需要先移动 bar 上的棋子 */
-static const int BACKGAMMON_ERR_MOVE_BLOCKED = 0;          /* 目标位置被敌方占领 */
+#define BACKGAMMON_OK 0                        /* 成功 */
+#define BACKGAMMON_ERR_MOVE_EMPTY 1            /* 移动空位置 */
+#define BACKGAMMON_ERR_MOVE_OPPONENT_CHECKER 2 /* 移动敌方棋子 */
+#define BACKGAMMON_ERR_MOVE_BAR_NEEDED 3       /* 需要先移动 bar 上的棋子 */
+#define BACKGAMMON_ERR_MOVE_BLOCKED 4          /* 目标位置被敌方占领 */
 
 /**
  * @brief 棋盘位置编号
@@ -40,14 +40,14 @@ static const int BACKGAMMON_ERR_MOVE_BLOCKED = 0;          /* 目标位置被敌
  * WHITE: o
  *
  */
-static const int BACKGAMMON_BLACK_BAR_POS = 0;  /* 黑方中间条位置 */
-static const int BACKGAMMON_WHITE_BAR_POS = 25; /* 白方中间条位置 */
-static const int BACKGAMMON_WHITE_OFF_POS = 26; /* 白方槽位置 */
-static const int BACKGAMMON_BLACK_OFF_POS = 27; /* 黑方槽位置 */
-static const int BACKGAMMON_NUM_POSITIONS = 28; /* 总位置数量 */
+#define BACKGAMMON_BLACK_BAR_POS 0  /* 黑方中间条位置 */
+#define BACKGAMMON_WHITE_BAR_POS 25 /* 白方中间条位置 */
+#define BACKGAMMON_WHITE_OFF_POS 26 /* 白方槽位置 */
+#define BACKGAMMON_BLACK_OFF_POS 27 /* 黑方槽位置 */
+#define BACKGAMMON_NUM_POSITIONS 28 /* 总位置数量 */
 
-static const int BACKGAMMON_NUM_DICES = 2;     /* 骰子数量 */
-static const int BACKGAMMON_NUM_CHECKERS = 15; /* 每一方的棋子个数 */
+#define BACKGAMMON_NUM_DICES 2     /* 骰子数量 */
+#define BACKGAMMON_NUM_CHECKERS 15 /* 每一方的棋子个数 */
 
 /**
  * @brief 格子信息，表示某个位置的棋子颜色和数量。
