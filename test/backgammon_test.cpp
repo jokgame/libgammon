@@ -1,8 +1,10 @@
+#include <algorithm>
 #include <array>
 #include <cstdio>
 #include <cstdlib>
 #include <ctime>
 #include <iostream>
+#include <numeric>
 #include <vector>
 
 #include <onnxruntime/core/session/onnxruntime_cxx_api.h>
@@ -10,8 +12,6 @@
 extern "C" {
 #include "../backgammon/backgammon.h"
 }
-
-#define NUM_FEATURES 198
 
 static void usage(const char *name) { printf("Usage: %s <onnx model filename> [N]\n", name); }
 
@@ -29,7 +29,7 @@ static void print_actions(FILE *out, backgammon_action_t *tree) {
             char prefix[size * 4 - 3];
             memset(prefix, ' ', size * 4 - 4);
             prefix[size * 4 - 4] = 0;
-            fprintf(out, "%s(%d->%d)\n", prefix, parent->move.from, parent->move.to);
+            fprintf(out, "%s(%d->%d)\n", prefix, parent->from, parent->to);
         }
         if (parent->children) {
             path[size++] = parent->children;
@@ -46,73 +46,23 @@ static void print_actions(FILE *out, backgammon_action_t *tree) {
     }
 }
 
-static void print_board(const backgammon_game_t *game) {
-    char buf[128];
-    int offset = 0;
-    for (int i = 0; i < BACKGAMMON_NUM_POSITIONS; ++i) {
-        buf[offset++] = ' ';
-        if (game->board[i].count > 0) {
-            if (game->board[i].color == BACKGAMMON_WHITE) {
-                buf[offset++] = 'W';
-            } else {
-                buf[offset++] = 'B';
-            }
-            if (game->board[i].count < 10) {
-                buf[offset++] = '0' + game->board[i].count;
-            } else {
-                buf[offset++] = 'A' + (game->board[i].count - 10);
-            }
-        } else {
-            buf[offset++] = ' ';
-            buf[offset++] = ' ';
-        }
-    }
-    buf[offset] = 0;
-    fprintf(stderr, "= %s\n", buf);
-    offset = 0;
-    for (int i = 0; i < BACKGAMMON_NUM_POSITIONS; ++i) {
-        buf[offset++] = ' ';
-        if (i < 10) {
-            buf[offset++] = ' ';
-        } else {
-            buf[offset++] = '0' + (i / 10);
-        }
-        buf[offset++] = '0' + (i % 10);
-    }
-    buf[offset] = 0;
-    fprintf(stderr, "= %s\n", buf);
-}
+class TDGammonModel {
+  public:
+    static constexpr int64_t FEATURES = 198;
+    static constexpr int64_t OUTPUTS = 1;
 
-static int backgammon_verify_board(const backgammon_game_t *game) {
-    int white_count = 0;
-    int black_count = 0;
-    for (int i = 0; i < BACKGAMMON_NUM_POSITIONS; ++i) {
-        if (game->board[i].color == BACKGAMMON_WHITE) {
-            white_count += game->board[i].count;
-        } else {
-            black_count += game->board[i].count;
-        }
-    }
-    return white_count == BACKGAMMON_NUM_CHECKERS && black_count == BACKGAMMON_NUM_CHECKERS;
-}
-
-struct TDGammonModel {
+  public:
     TDGammonModel(const char *filename) : session_{env_, filename, Ort::SessionOptions{nullptr}} {
-        auto memory_info = Ort::MemoryInfo::CreateCpu(OrtDeviceAllocator, OrtMemTypeCPU);
-        input_tensor_ = Ort::Value::CreateTensor<double>(memory_info, input_.data(), input_.size(),
-                                                         input_shape_.data(), input_shape_.size());
-        output_tensor_ =
-            Ort::Value::CreateTensor<double>(memory_info, output_.data(), output_.size(),
-                                             output_shape_.data(), output_shape_.size());
+        auto m = Ort::MemoryInfo::CreateCpu(OrtDeviceAllocator, OrtMemTypeCPU);
+        input_tensor_ = Ort::Value::CreateTensor<double>(m, input_, FEATURES, &FEATURES, 1);
+        output_tensor_ = Ort::Value::CreateTensor<double>(m, output_, OUTPUTS, &OUTPUTS, 1);
     }
 
     double run(const double *input) {
-        const char *input_names[] = {"Input"};
-        const char *output_names[] = {"Ouput"};
+        const char *input_names[] = {"GameState"};
+        const char *output_names[] = {"WhiteWinRate"};
 
-        for (int i = 0; i < NUM_FEATURES; ++i) {
-            input_[i] = input[i];
-        }
+        memcpy(input_, input, sizeof(double) * FEATURES);
         Ort::RunOptions run_options;
         session_.Run(run_options, input_names, &input_tensor_, 1, output_names, &output_tensor_, 1);
         return output_[0];
@@ -123,20 +73,20 @@ struct TDGammonModel {
     Ort::Session session_;
 
     Ort::Value input_tensor_{nullptr};
-    std::array<int64_t, 1> input_shape_{NUM_FEATURES};
-
     Ort::Value output_tensor_{nullptr};
-    std::array<int64_t, 1> output_shape_{1};
 
-    std::array<double, NUM_FEATURES> input_{};
-    std::array<double, 1> output_{};
+    double input_[FEATURES];
+    double output_[1];
 };
 
 struct VisitorContext {
+    struct Move {
+        int from, to;
+    };
     std::shared_ptr<TDGammonModel> model{nullptr};
     backgammon_game_t *game{nullptr};
     backgammon_color_t turn{BACKGAMMON_WHITE};
-    std::vector<backgammon_move_t> best_action{};
+    std::vector<Move> best_action{};
     double best_action_score{-1};
 
     void reset(backgammon_color_t turn_) {
@@ -146,38 +96,35 @@ struct VisitorContext {
     }
 };
 
-int test() {
-    backgammon_game_t *game = backgammon_game_new();
-    memset(game, 0, sizeof(backgammon_game_t));
-
-    game->board[24].color = BACKGAMMON_BLACK;
-    game->board[24].count = 14;
-    game->board[27].color = BACKGAMMON_BLACK;
-    game->board[27].count = 1;
-
-    game->board[1].color = BACKGAMMON_WHITE;
-    game->board[1].count = 14;
-    game->board[26].color = BACKGAMMON_WHITE;
-    game->board[26].count = 1;
-
-    int roll[2] = {1, 2};
-    backgammon_action_t *actions = backgammon_game_get_actions(game, BACKGAMMON_WHITE, roll);
-    print_actions(stderr, actions);
-
-    backgammon_game_free(game);
-    return 0;
-}
-
 int main(int argc, char **argv) {
     srand(time(NULL));
 
     const int verbose = 0;
+    const bool enable_rev_score = true;
+
+    /**
+     * TDGammon 算法训练的模型存在不一致问题：给定一个棋盘状态 s，对应的反对称状态记为 s',
+     * 那么该模型可能无法满足恒等式:
+     *
+     *      f(s) + f(s') = 1
+     *
+     * 所谓反对称状态是指将每个棋子移动到对方对应的位置处之后获得的状态。一个合理胜率评估函数应该满足上述
+     * 恒等式，但是网络模型却无法保证。如果不进行处理（朴素策略），会导致白棋 AI 和黑棋 AI 不对等。
+     */
+    enum ScorePolicyType {
+        NAIVE = 0,           /* 朴素策略 */
+        REVERSE_WHITE = 1,   /* 对白色回合状态反转 */
+        REVERSE_BLACK = 2,   /* 对黑色回合状态反转 */
+        REVERSE_AVERAGE = 3, /* 反转之后求平均值: g(s) = (f(s) + 1 - f(s')) / 2 */
+    };
+    const ScorePolicyType score_policy = NAIVE;
+
     if (argc == 1) {
         usage(argv[0]);
         return 1;
     }
     const char *filename = argv[1];
-    const int N = argc == 3 ? max(atoi(argv[2]), 1) : 100;
+    const int N = argc == 3 ? max(atoi(argv[2]), 1) : 10000;
 
     /* load TD-Gammon onnx */
     std::shared_ptr<TDGammonModel> model;
@@ -230,34 +177,56 @@ int main(int argc, char **argv) {
                 actions,
                 [](void *ctx, const backgammon_action_t **path, int size) {
                     VisitorContext *context = (VisitorContext *)ctx;
-                    double features[NUM_FEATURES];
-                    backgammon_move_t moves[size];
-                    for (int i = 0; i < size; ++i) {
-                        moves[i] = path[i]->move;
-                    }
-                    if (verbose > 1) {
-                        std::cout << "candidate action=";
-                        for (const auto &move : moves) {
-                            std::cout << "(" << move.from << "->" << move.to << ")";
+                    double features[TDGammonModel::FEATURES];
+                    assert(backgammon_game_encode_action(context->game, context->turn, path, size,
+                                                         features) == TDGammonModel::FEATURES);
+                    double score = 0;
+                    switch (score_policy) {
+                    case ScorePolicyType::REVERSE_WHITE: {
+                        if (context->turn == BACKGAMMON_WHITE) {
+                            score = context->model->run(features);
+                        } else {
+                            backgammon_game_reverse_features(features);
+                            score = 1.0 - context->model->run(features);
                         }
-                        std::cout << std::endl;
+                    } break;
+
+                    case ScorePolicyType::REVERSE_BLACK: {
+                        if (context->turn == BACKGAMMON_BLACK) {
+                            score = context->model->run(features);
+                        } else {
+                            backgammon_game_reverse_features(features);
+                            score = 1.0 - context->model->run(features);
+                        }
+                    } break;
+
+                    case ScorePolicyType::REVERSE_AVERAGE: {
+                        score = context->model->run(features);
+                        backgammon_game_reverse_features(features);
+                        score = (1.0 + score - context->model->run(features)) / 2.0;
+                    } break;
+
+                    default:
+                        score = context->model->run(features);
+                        break;
                     }
-                    assert(backgammon_game_encode_action(context->game, context->turn, moves, size,
-                                                         features));
-                    double score = context->model->run(features);
                     if (context->turn == BACKGAMMON_BLACK) {
                         score = 1.0 - score;
                     }
                     if (score > context->best_action_score) {
                         context->best_action_score = score;
-                        context->best_action = std::vector<backgammon_move_t>(moves, moves + size);
+                        context->best_action.resize(size);
+                        for (int i = 0; i < size; ++i) {
+                            context->best_action[i].from = path[i]->from;
+                            context->best_action[i].to = path[i]->to;
+                        }
                     }
                 },
                 &context);
             backgammon_action_free(actions);
 
             if (verbose > 0) {
-                print_board(game);
+                backgammon_game_print(stderr, game);
             }
 
             if (context.best_action.empty()) {
@@ -269,12 +238,6 @@ int main(int argc, char **argv) {
                 /* play action */
                 for (const auto &move : context.best_action) {
                     assert(backgammon_game_move(game, turn, move.from, move.to) == BACKGAMMON_OK);
-                    if (!backgammon_verify_board(game)) {
-                        fprintf(stderr, "invalid board after %d move from %d to %d\n", turn,
-                                move.from, move.to);
-                        print_board(game);
-                        assert(backgammon_verify_board(game));
-                    }
                 }
                 if (verbose > 0) {
                     std::cout << "step " << steps << " " << player << ":"
