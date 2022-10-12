@@ -1,21 +1,27 @@
 #ifndef _BACKGAMMON_H_
 #define _BACKGAMMON_H_
 
+#include <stdbool.h>
+
 /**
  * @brief 棋子颜色，注意，白色总是代表先手方。
  */
-#define BACKGAMMON_NOCOLOR 0
-#define BACKGAMMON_WHITE 1
-#define BACKGAMMON_BLACK 2
+typedef enum backgammon_color_t {
+    BACKGAMMON_NOCOLOR = 0,
+    BACKGAMMON_WHITE = 1,
+    BACKGAMMON_BLACK = 2,
+} backgammon_color_t;
 
 /**
  * @brief 错误码
  */
-#define BACKGAMMON_OK 0                        /* 成功 */
-#define BACKGAMMON_ERR_MOVE_EMPTY 1            /* 移动空位置 */
-#define BACKGAMMON_ERR_MOVE_OPPONENT_CHECKER 2 /* 移动敌方棋子 */
-#define BACKGAMMON_ERR_MOVE_BAR_NEEDED 3       /* 需要先移动 bar 上的棋子 */
-#define BACKGAMMON_ERR_MOVE_BLOCKED 4          /* 目标位置被敌方占领 */
+typedef enum backgammon_error_t {
+    BACKGAMMON_OK = 0,                        /* 成功 */
+    BACKGAMMON_ERR_MOVE_EMPTY = 1,            /* 移动空位置 */
+    BACKGAMMON_ERR_MOVE_OPPONENT_CHECKER = 2, /* 移动敌方棋子 */
+    BACKGAMMON_ERR_MOVE_BAR_NEEDED = 3,       /* 需要先移动 bar 上的棋子 */
+    BACKGAMMON_ERR_MOVE_BLOCKED = 4,          /* 目标位置被敌方占领 */
+} backgammon_error_t;
 
 /**
  * @brief 棋盘位置编号
@@ -52,12 +58,12 @@
 /**
  * @brief 格子信息，表示某个位置的棋子颜色和数量。
  */
-typedef struct backgammon_grid_s {
-    int color;
+typedef struct backgammon_grid_t {
+    backgammon_color_t color;
     int count;
 } backgammon_grid_t;
 
-typedef struct backgammon_move_s {
+typedef struct backgammon_move_t {
     int from, to;
 } backgammon_move_t;
 
@@ -66,17 +72,17 @@ typedef struct backgammon_move_s {
  * 节点及其所有祖先节点构成的路径（按顺序的多次移动操作）代表本轮的一种合法的动作。当 parent 为
  * null 时，忽略其 from 和 to，此时这只是一个抽象根节点。
  */
-typedef struct backgammon_action_s {
+typedef struct backgammon_action_t {
     backgammon_move_t move;
-    struct backgammon_action_s *parent;
-    struct backgammon_action_s *sibling;
-    struct backgammon_action_s *children;
+    struct backgammon_action_t *parent;
+    struct backgammon_action_t *sibling;
+    struct backgammon_action_t *children;
 } backgammon_action_t;
 
 /**
  * @brief 游戏状态
  */
-typedef struct backgammon_game_s {
+typedef struct backgammon_game_t {
     backgammon_grid_t board[BACKGAMMON_NUM_POSITIONS]; /* 棋盘各个位置的信息 */
 } backgammon_game_t;
 
@@ -108,8 +114,8 @@ backgammon_grid_t backgammon_game_get_grid(const backgammon_game_t *game, int po
  * @param color 当前玩家棋子颜色
  * @param roll 投掷的每个骰子的点数
  */
-backgammon_action_t *backgammon_game_get_actions(const backgammon_game_t *game, int color,
-                                                 const int *roll);
+backgammon_action_t *backgammon_game_get_actions(const backgammon_game_t *game,
+                                                 backgammon_color_t color, const int *roll);
 
 /**
  * @brief 释放移动动作树
@@ -135,36 +141,36 @@ void backgammon_action_visit(const backgammon_action_t *tree, backgammon_action_
  * @param color 当前玩家棋子颜色
  * @param from 被移动棋子的位置
  * @param to 被移动棋子的目标位置
- * @return int 返回 0 表示成功，否则表示错误原因
+ * @return backgammon_color_t
  */
-int backgammon_game_move(backgammon_game_t *game, int color, int from, int to);
+backgammon_error_t backgammon_game_move(backgammon_game_t *game, backgammon_color_t color, int from,
+                                        int to);
 
 /**
  * @brief 查询指定玩家是否可以开始 bear-off
  *
  * @param game 当前游戏状态
  * @param color 当前玩家棋子颜色
- * @return int 返回 1 表示可以
+ * @return bool
  */
-int backgammon_game_can_bear_off(const backgammon_game_t *game, int color);
+bool backgammon_game_can_bear_off(const backgammon_game_t *game, backgammon_color_t color);
 
 /**
  * @brief 返回游戏结束后的胜利方颜色，如果游戏没有结束则返回 BACKGAMMON_NOCOLOR
  *
  * @param game 当前游戏状态
- * @return int BACKGAMMON_NOCOLOR|BACKGAMMON_WHITE|BACKGAMMON_BLACK
+ * @return backgammon_color_t
  */
-int backgammon_game_winner(const backgammon_game_t *game);
+backgammon_color_t backgammon_game_winner(const backgammon_game_t *game);
 
 /**
  * @brief 按 TD-Gammon 算法编码棋盘状态
  *
  * @param game 当前游戏状态
- * @param color 当前玩家棋子颜色
  * @param vec 输出向量，需要有 198 个元素
- * @return int 编码成功返回 1
+ * @return bool
  */
-int backgammon_game_encode(const backgammon_game_t *game, int color, double *vec);
+bool backgammon_game_encode(const backgammon_game_t *game, backgammon_color_t color, double *vec);
 
 /**
  * @brief 按 TD-Gammon 算法编码执行指定动作后的棋盘状态
@@ -174,9 +180,9 @@ int backgammon_game_encode(const backgammon_game_t *game, int color, double *vec
  * @param moves 构成动作的所有移动操作
  * @param num_moves 移动操作个数
  * @param vec 输出向量，需要有 198 个元素
- * @return int 编码成功返回 1
+ * @return bool
  */
-int backgammon_game_encode_action(const backgammon_game_t *game, int color,
-                                  const backgammon_move_t *moves, int num_moves, double *vec);
+bool backgammon_game_encode_action(const backgammon_game_t *game, backgammon_color_t color,
+                                   const backgammon_move_t *moves, int num_moves, double *vec);
 
 #endif // _BACKGAMMON_H_

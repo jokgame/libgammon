@@ -5,22 +5,22 @@
 
 #include "backgammon.h"
 
-static backgammon_grid_t backgammon_make_grid(int color, int count) {
+static backgammon_grid_t backgammon_make_grid(backgammon_color_t color, int count) {
     backgammon_grid_t grid;
     grid.color = color;
     grid.count = count;
     return grid;
 }
 
-static int backgammon_get_bar_pos(int color) {
+static int backgammon_get_bar_pos(backgammon_color_t color) {
     return color == BACKGAMMON_WHITE ? BACKGAMMON_WHITE_BAR_POS : BACKGAMMON_BLACK_BAR_POS;
 }
 
-static int backgammon_get_off_pos(int color) {
+static int backgammon_get_off_pos(backgammon_color_t color) {
     return color == BACKGAMMON_WHITE ? BACKGAMMON_WHITE_OFF_POS : BACKGAMMON_BLACK_OFF_POS;
 }
 
-static int backgammon_is_home_pos(int color, int pos) {
+static int backgammon_is_home_pos(backgammon_color_t color, int pos) {
     if (color == BACKGAMMON_WHITE) {
         return pos >= 1 && pos <= 6;
     }
@@ -35,33 +35,30 @@ static int backgammon_is_off_pos(int pos) {
     return pos == BACKGAMMON_WHITE_OFF_POS || pos == BACKGAMMON_BLACK_OFF_POS;
 }
 
-static int backgammon_add_moves(int color, int pos, int moves, int *precise) {
+static int backgammon_add_moves(backgammon_color_t color, int pos, int moves, int *hit_off) {
     if (color == BACKGAMMON_WHITE) {
         pos -= moves;
         if (pos < 1) {
-            *precise = pos == 0;
+            *hit_off = pos == 0;
             return BACKGAMMON_WHITE_OFF_POS;
         }
     } else {
         pos += moves;
         if (pos > 24) {
-            *precise = pos == 25;
+            *hit_off = pos == 25;
             return BACKGAMMON_BLACK_OFF_POS;
         }
     }
     return pos;
 }
 
-static int backgammon_can_move(const backgammon_game_t *game, int color, int from, int to,
-                               int precise) {
+static int backgammon_can_move(const backgammon_game_t *game, backgammon_color_t color, int from,
+                               int to, int hit_off) {
     if (from == to) {
         return 0;
     }
     /* 当前位置为空或者不是己方棋子 */
-    if (game->board[from].count <= 0) {
-        return 0;
-    }
-    if (game->board[from].color != color) {
+    if (game->board[from].count <= 0 || game->board[from].color != color) {
         return 0;
     }
     /* 中间条上有棋子时必须先移动中间的棋子 */
@@ -75,8 +72,8 @@ static int backgammon_can_move(const backgammon_game_t *game, int color, int fro
         if (!backgammon_game_can_bear_off(game, color)) {
             return 0;
         }
-        if (!precise) {
-            /* 在可以 bear-off 时，如果移动步数不准确，则必须要求没有距离 off 更远的棋子 */
+        if (!hit_off) {
+            /* 在可以 bear-off 时，如果不是恰好命中 off 位置，则必须要求没有距离 off 更远的棋子 */
             if (color == BACKGAMMON_WHITE) {
                 for (int pos = from + 1; pos <= 6; ++pos) {
                     if (game->board[pos].color == color && game->board[pos].count > 0) {
@@ -146,7 +143,7 @@ static backgammon_action_t *backgammon_append_move(backgammon_action_t *parent, 
 
 #define backgammon_try_get_moves(game, color, parent, roll, num_roll, from, to, precise)           \
     do {                                                                                           \
-        if (backgammon_can_move(game, color, from, to, precise)) {                                 \
+        if (backgammon_can_move(game, color, from, to, hit_off)) {                                 \
             backgammon_game_t new_game;                                                            \
             memcpy(&new_game, game, sizeof(backgammon_game_t));                                    \
             backgammon_game_move(&new_game, color, from, to);                                      \
@@ -157,32 +154,32 @@ static backgammon_action_t *backgammon_append_move(backgammon_action_t *parent, 
         }                                                                                          \
     } while (0)
 
-static void backgammon_get_moves(const backgammon_game_t *game, int color,
+static void backgammon_get_moves(const backgammon_game_t *game, backgammon_color_t color,
                                  backgammon_action_t *parent, const int *roll, int num_roll) {
     const int bar_pos = backgammon_get_bar_pos(color);
     if (game->board[bar_pos].count > 0) {
         /* 需要先移动中间条上棋子 */
-        int precise = 1;
-        const int to = backgammon_add_moves(color, bar_pos, roll[0], &precise);
-        backgammon_try_get_moves(game, color, parent, roll, num_roll, bar_pos, to, precise);
+        int hit_off = 1;
+        const int to = backgammon_add_moves(color, bar_pos, roll[0], &hit_off);
+        backgammon_try_get_moves(game, color, parent, roll, num_roll, bar_pos, to, hit_off);
         return;
     }
     for (int pos = 0; pos < BACKGAMMON_NUM_POSITIONS; ++pos) {
         if (backgammon_is_off_pos(pos) || backgammon_is_bar_pos(pos)) {
             continue;
         }
-        int precise = 1;
-        const int to = backgammon_add_moves(color, pos, roll[0], &precise);
-        backgammon_try_get_moves(game, color, parent, roll, num_roll, pos, to, precise);
+        int hit_off = 1;
+        const int to = backgammon_add_moves(color, pos, roll[0], &hit_off);
+        backgammon_try_get_moves(game, color, parent, roll, num_roll, pos, to, hit_off);
     }
 }
 
-backgammon_action_t *backgammon_game_get_actions(const backgammon_game_t *game, int color,
-                                                 const int *roll) {
+backgammon_action_t *backgammon_game_get_actions(const backgammon_game_t *game,
+                                                 backgammon_color_t color, const int *roll) {
     backgammon_action_t *root = (backgammon_action_t *)malloc(sizeof(backgammon_action_t));
     memset(root, 0, sizeof(backgammon_action_t));
     if (roll[0] == roll[1]) {
-        int duproll[BACKGAMMON_NUM_DICES * 2] = {roll[0]};
+        int duproll[BACKGAMMON_NUM_DICES * 2] = {roll[0], roll[0], roll[0], roll[0]};
         backgammon_get_moves(game, color, root, duproll, BACKGAMMON_NUM_DICES * 2);
     } else {
         int revroll[BACKGAMMON_NUM_DICES] = {roll[1], roll[0]};
@@ -224,7 +221,8 @@ void backgammon_action_visit(const backgammon_action_t *tree, backgammon_action_
     }
 }
 
-int backgammon_game_move(backgammon_game_t *game, int color, int from, int to) {
+backgammon_error_t backgammon_game_move(backgammon_game_t *game, backgammon_color_t color, int from,
+                                        int to) {
     assert(from >= 0 && from < BACKGAMMON_NUM_POSITIONS && !backgammon_is_off_pos(from));
     if (!(to >= 1 && to < BACKGAMMON_NUM_POSITIONS && !backgammon_is_bar_pos(to))) {
         printf("to=%d\n", to);
@@ -246,7 +244,7 @@ int backgammon_game_move(backgammon_game_t *game, int color, int from, int to) {
         return BACKGAMMON_ERR_MOVE_BAR_NEEDED;
     }
 
-    if (game->board[to].color == 0 || game->board[to].color == color) {
+    if (game->board[to].count == 0 || game->board[to].color == color) {
         /* 目标位置没有棋子或是己方棋子，则直接移动至目标位置即可 */
         game->board[to].color = color;
         game->board[to].count++;
@@ -260,26 +258,32 @@ int backgammon_game_move(backgammon_game_t *game, int color, int from, int to) {
         const int opponent = game->board[to].color;
         game->board[to].color = color;
         game->board[to].count = 1;
-        game->board[backgammon_get_bar_pos(opponent)].count++;
+        game->board[from].count--;
+        const int opponent_bar_pos = backgammon_get_bar_pos(opponent);
+        game->board[opponent_bar_pos].color = opponent;
+        game->board[opponent_bar_pos].count++;
     }
     return BACKGAMMON_OK;
 }
 
-int backgammon_game_can_bear_off(const backgammon_game_t *game, int color) {
+bool backgammon_game_can_bear_off(const backgammon_game_t *game, backgammon_color_t color) {
     const int bar_pos = backgammon_get_bar_pos(color);
     for (int pos = 0; pos < BACKGAMMON_NUM_POSITIONS; ++pos) {
+        if (backgammon_is_off_pos(pos)) {
+            continue;
+        }
         if (pos == bar_pos && game->board[pos].count > 0) {
-            return 0;
+            return false;
         }
         if (!backgammon_is_home_pos(color, pos) && game->board[pos].color == color &&
             game->board[pos].count > 0) {
-            return 0;
+            return false;
         }
     }
-    return 1;
+    return true;
 }
 
-int backgammon_game_winner(const backgammon_game_t *game) {
+backgammon_color_t backgammon_game_winner(const backgammon_game_t *game) {
     if (game->board[BACKGAMMON_WHITE_OFF_POS].count == BACKGAMMON_NUM_CHECKERS) {
         return BACKGAMMON_WHITE;
     }
@@ -289,20 +293,46 @@ int backgammon_game_winner(const backgammon_game_t *game) {
     return BACKGAMMON_NOCOLOR;
 }
 
-int backgammon_game_encode(const backgammon_game_t *game, int color, double *vec) {
-    // TODO: 编码棋盘状态
-    return 1;
+bool backgammon_game_encode(const backgammon_game_t *game, backgammon_color_t color, double *vec) {
+    int offset = 0;
+    backgammon_color_t colors[2] = {BACKGAMMON_WHITE, BACKGAMMON_BLACK};
+    for (int i = 0; i < 2; ++i) {
+        const backgammon_color_t color = colors[i];
+        for (int pos = 1; pos <= 24; ++pos) {
+            const int count = game->board[pos].color == color ? game->board[pos].count : 0;
+            if (count < 4) {
+                for (int j = 0; j < 4; ++j) {
+                    vec[offset++] = j < count ? 1.0 : 0.0;
+                }
+            } else {
+                vec[offset++] = 1.0;
+                vec[offset++] = 1.0;
+                vec[offset++] = 1.0;
+                vec[offset++] = ((double)count - 3.0) / 2.0;
+            }
+        }
+        vec[offset++] = (double)(game->board[backgammon_get_bar_pos(color)].count) / 2.0;
+        vec[offset++] = (double)(game->board[backgammon_get_off_pos(color)].count) / 2.0;
+    }
+    if (color == BACKGAMMON_WHITE) {
+        vec[offset++] = 1.0;
+        vec[offset++] = 0.0;
+    } else {
+        vec[offset++] = 0.0;
+        vec[offset++] = 1.0;
+    }
+    assert(offset == 198);
+    return true;
 }
 
-int backgammon_game_encode_action(const backgammon_game_t *game, int color,
-                                  const backgammon_move_t *moves, int num_moves, double *vec) {
+bool backgammon_game_encode_action(const backgammon_game_t *game, backgammon_color_t color,
+                                   const backgammon_move_t *moves, int num_moves, double *vec) {
     backgammon_game_t new_game;
     memcpy(&new_game, game, sizeof(backgammon_game_t));
     for (int i = 0; i < num_moves; ++i) {
         const int err = backgammon_game_move(&new_game, color, moves[i].from, moves[i].to);
         if (err != BACKGAMMON_OK) {
-            printf("move error=%d\n", err);
-            return 0;
+            return false;
         }
     }
     return backgammon_game_encode(&new_game, color, vec);
