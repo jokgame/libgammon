@@ -96,6 +96,27 @@ struct VisitorContext {
     }
 };
 
+int test() {
+    size_t size = 0;
+    const int roll[2] = {2, 3};
+    backgammon_grid_t grids[BACKGAMMON_NUM_POSITIONS];
+    int positions[BACKGAMMON_NUM_POSITIONS];
+    grids[size].color = BACKGAMMON_WHITE;
+    grids[size].count = 1;
+    positions[size++] = BACKGAMMON_BOARD_MIN_POS;
+    grids[size].color = BACKGAMMON_WHITE;
+    grids[size].count = 1;
+    positions[size++] = BACKGAMMON_BOARD_MIN_POS + 2;
+
+    backgammon_game_t *game = backgammon_game_new_with_board(grids, positions, size);
+    backgammon_action_t *actions = backgammon_game_get_actions(game, BACKGAMMON_WHITE, roll);
+
+    print_actions(stderr, actions);
+
+    free(game);
+    return 0;
+}
+
 int main(int argc, char **argv) {
     srand(time(NULL));
 

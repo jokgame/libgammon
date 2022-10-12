@@ -81,6 +81,12 @@ typedef struct backgammon_action_t {
 struct backgammon_game_t *backgammon_game_new();
 
 /**
+ * @brief 使用指定的格子信息创建新游戏
+ */
+struct backgammon_game_t *backgammon_game_new_with_board(const backgammon_grid_t *grids,
+                                                         const int *positions, size_t size);
+
+/**
  * @brief 释放游戏
  *
  * @param game 当前游戏状态

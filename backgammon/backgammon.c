@@ -86,17 +86,17 @@ static int backgammon_can_move(const backgammon_game_t *game, backgammon_color_t
             return 0;
         }
         if (!hit_off) {
-            /* 在可以 bear off 时，如果不是恰好命中 off 位置，则必须要求没有距离 off 更远的棋子 */
+            /* 如果不是恰好命中 off 位置，则必须要求没有比 from 距离 off 更远的棋子 */
             int begin_pos, end_pos, direction;
             if (color == BACKGAMMON_WHITE) {
-                begin_pos = BACKGAMMON_BOARD_MIN_POS + moves;
                 end_pos = BACKGAMMON_BOARD_MIN_POS + BACKGAMMON_NUM_HOME_POSITIONS;
                 direction = +1;
+                begin_pos = from + direction;
                 assert(begin_pos <= end_pos);
             } else {
-                begin_pos = BACKGAMMON_BOARD_MAX_POS - moves;
                 end_pos = BACKGAMMON_BOARD_MAX_POS - BACKGAMMON_NUM_HOME_POSITIONS;
                 direction = -1;
+                begin_pos = from + direction;
                 assert(begin_pos >= end_pos);
             }
             for (int pos = begin_pos; pos != end_pos; pos += direction) {
@@ -124,6 +124,16 @@ backgammon_game_t *backgammon_game_new() {
     game->board[BACKGAMMON_BOARD_MIN_POS + 11] = backgammon_make_grid(BACKGAMMON_BLACK, 5);
     game->board[BACKGAMMON_BOARD_MIN_POS + 16] = backgammon_make_grid(BACKGAMMON_BLACK, 3);
     game->board[BACKGAMMON_BOARD_MIN_POS + 18] = backgammon_make_grid(BACKGAMMON_BLACK, 5);
+    return game;
+}
+
+backgammon_game_t *backgammon_game_new_with_board(const backgammon_grid_t *grids,
+                                                  const int *positions, size_t size) {
+    backgammon_game_t *game = (backgammon_game_t *)malloc(sizeof(backgammon_game_t));
+    memset(game, 0, sizeof(backgammon_game_t));
+    for (size_t i = 0; i < size; ++i) {
+        game->board[positions[i]] = grids[i];
+    }
     return game;
 }
 
