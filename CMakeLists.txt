@@ -13,7 +13,6 @@ aux_source_directory(./src/backgammon src_libgammon)
 add_library(gammon ${src_libgammon})
 
 # build gammon_test
-
 if (ENABLE_TEST)
 	aux_source_directory(./src/test src_test)
 	add_executable(gammon_test ${src_test})

@@ -2,6 +2,7 @@
 *.swo
 .DS_Store
 .vscode/
+.ccls-cache/
 
 *.o
 *.a

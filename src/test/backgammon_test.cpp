@@ -38,8 +38,6 @@ extern "C" {
 
 static void usage(const char *name) { printf("Usage: %s <onnx model filename> [N]\n", name); }
 
-static int max(int a, int b) { return a > b ? a : b; }
-
 static void print_actions(FILE *out, backgammon_action_t *tree) {
     const backgammon_action_t *path[32];
     int size = 0;
@@ -168,7 +166,7 @@ int main(int argc, char **argv) {
         return 1;
     }
     const char *filename = argv[1];
-    const int N = argc == 3 ? max(atoi(argv[2]), 1) : 10000;
+    const int N = argc == 3 ? std::max(atoi(argv[2]), 1) : 10000;
 
     /* load TD-Gammon onnx */
     std::shared_ptr<TDGammonModel> model;
