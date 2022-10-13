@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <array>
+#include <assert.h>
 #include <cstdio>
 #include <cstdlib>
 #include <ctime>
@@ -7,6 +8,28 @@
 #include <numeric>
 #include <vector>
 
+/**
+ * 测试需要使用 AI 导出的 onnx 模型，这里使用 microsoft/onnxruntime 来加载和运行。
+ *
+ * macOS 上安装 onnxruntime:
+ *
+ *		brew install onnxruntime
+ *
+ * linux 上安装 onnxruntime (@see https://onnxruntime.ai/docs/build/inferencing.html):
+ *
+ *	build (需要 cmake 3.18 及以上版本):
+ *		git clone --recursive https://github.com/Microsoft/onnxruntime
+ *		cd onnxruntime
+ *		./build.sh --config RelWithDebInfo --build_shared_lib --parallel
+ *
+ *	install:
+ *		cd build/Linux/RelWithDebInfo
+ *		sudo make install
+ *
+ *  setup env:
+ *      export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
+ *
+ */
 #include <onnxruntime/core/session/onnxruntime_cxx_api.h>
 
 extern "C" {
