@@ -65,52 +65,6 @@ static int backgammon_add_moves(backgammon_color_t color, int pos, int moves, in
     return pos;
 }
 
-static int backgammon_can_move(const backgammon_game_t *game, backgammon_color_t color, int from,
-                               int to, int moves, int hit_off) {
-    if (from == to) {
-        return 0;
-    }
-    /* 当前位置为空或者不是己方棋子 */
-    if (game->board[from].count <= 0 || game->board[from].color != color) {
-        return 0;
-    }
-    /* 中间条上有棋子时必须先移动中间的棋子 */
-    const int bar_pos = backgammon_get_bar_pos(color);
-    if (from != bar_pos && game->board[bar_pos].count > 0) {
-        return 0;
-    }
-
-    const int off_pos = backgammon_get_off_pos(color);
-    if (to == off_pos) {
-        if (!backgammon_game_can_bear_off(game, color)) {
-            return 0;
-        }
-        if (!hit_off) {
-            /* 如果不是恰好命中 off 位置，则必须要求没有比 from 距离 off 更远的棋子 */
-            int begin_pos, end_pos, direction;
-            if (color == BACKGAMMON_WHITE) {
-                end_pos = BACKGAMMON_BOARD_MIN_POS + BACKGAMMON_NUM_HOME_POSITIONS;
-                direction = +1;
-                begin_pos = from + direction;
-                assert(begin_pos <= end_pos);
-            } else {
-                end_pos = BACKGAMMON_BOARD_MAX_POS - BACKGAMMON_NUM_HOME_POSITIONS;
-                direction = -1;
-                begin_pos = from + direction;
-                assert(begin_pos >= end_pos);
-            }
-            for (int pos = begin_pos; pos != end_pos; pos += direction) {
-                if (game->board[pos].color == color && game->board[pos].count > 0) {
-                    return 0;
-                }
-            }
-        }
-    } else if (game->board[to].color != color && game->board[to].count > 1) {
-        return 0;
-    }
-    return 1;
-}
-
 backgammon_game_t *backgammon_game_new() {
     backgammon_game_t *game = (backgammon_game_t *)malloc(sizeof(backgammon_game_t));
     memset(game, 0, sizeof(backgammon_game_t));
@@ -137,6 +91,12 @@ backgammon_game_t *backgammon_game_new_with_board(const backgammon_grid_t *grids
     return game;
 }
 
+backgammon_game_t *backgammon_game_clone(const struct backgammon_game_t *game) {
+    backgammon_game_t *new_game = (backgammon_game_t *)malloc(sizeof(backgammon_game_t));
+    memcpy(new_game, game, sizeof(backgammon_game_t));
+    return new_game;
+}
+
 void backgammon_game_free(backgammon_game_t *game) {
     if (game) {
         free(game);
@@ -150,7 +110,6 @@ static backgammon_action_t *backgammon_append_move(backgammon_action_t *parent, 
         memset(parent->children, 0, sizeof(backgammon_action_t));
         dst = parent->children;
     } else {
-        // TODO(wangjin): 是否有必要在 action 节点中记录最右侧的 sibling 以避免遍历?
         dst = parent->children;
         while (dst->sibling) {
             dst = dst->sibling;
@@ -170,9 +129,8 @@ static void backgammon_get_moves(const backgammon_game_t *game, backgammon_color
 static void backgammon_try_get_moves(const backgammon_game_t *game, backgammon_color_t color,
                                      backgammon_action_t *parent, const int *roll, int num_roll,
                                      int from) {
-    int hit_off = 1;
-    const int to = backgammon_add_moves(color, from, roll[0], &hit_off);
-    if (backgammon_can_move(game, color, from, to, roll[0], hit_off)) {
+    const int to = backgammon_game_can_move(game, color, from, roll[0]);
+    if (to >= 0) {
         backgammon_game_t new_game;
         memcpy(&new_game, game, sizeof(backgammon_game_t));
         backgammon_game_move(&new_game, color, from, to);
@@ -251,49 +209,100 @@ void backgammon_action_visit(const backgammon_action_t *tree, backgammon_action_
     }
 }
 
-backgammon_error_t backgammon_game_move(backgammon_game_t *game, backgammon_color_t color, int from,
-                                        int to) {
-    assert(from >= 0 && from < BACKGAMMON_NUM_POSITIONS);
-    assert(!backgammon_is_off_pos(from));
-    assert(from != backgammon_get_bar_pos(backgammon_get_opponent(color)));
-    assert(to >= 0 && to < BACKGAMMON_NUM_POSITIONS);
-    assert(!backgammon_is_bar_pos(to));
-    assert(to != backgammon_get_off_pos(backgammon_get_opponent(color)));
-
-    /* 当前位置为空或者不是己方棋子 */
+int backgammon_game_can_move(const backgammon_game_t *game, backgammon_color_t color, int from,
+                             int steps) {
+    /* from 位置越界检查 */
+    if (from < 0 || from >= BACKGAMMON_NUM_POSITIONS) {
+        return BACKGAMMON_ERR_MOVE_OUT_OF_RANGE;
+    }
+    if (backgammon_is_off_pos(from)) {
+        return BACKGAMMON_ERR_MOVE_OUT_OF_RANGE;
+    }
+    if (from == backgammon_get_bar_pos(backgammon_get_opponent(color))) {
+        return BACKGAMMON_ERR_MOVE_OUT_OF_RANGE;
+    }
+    /* to 位置越界检查 */
+    int hit_off = 1;
+    const int to = backgammon_add_moves(color, from, steps, &hit_off);
+    if (to < 0 || to >= BACKGAMMON_NUM_POSITIONS) {
+        return BACKGAMMON_ERR_MOVE_OUT_OF_RANGE;
+    }
+    if (backgammon_is_bar_pos(to)) {
+        return BACKGAMMON_ERR_MOVE_OUT_OF_RANGE;
+    }
+    if (to == backgammon_get_off_pos(backgammon_get_opponent(color))) {
+        return BACKGAMMON_ERR_MOVE_OUT_OF_RANGE;
+    }
+    /* 移动至原位置了 */
+    if (from == to) {
+        return BACKGAMMON_ERR_MOVE_TO_ORIGIN;
+    }
+    /* 当前位置为空 */
     if (game->board[from].count <= 0) {
         return BACKGAMMON_ERR_MOVE_EMPTY;
     }
+    /* 当前位置不是己方棋子 */
     if (game->board[from].color != color) {
         return BACKGAMMON_ERR_MOVE_OPPONENT_CHECKER;
     }
-
     /* 中间条上有棋子时必须先移动中间的棋子 */
     const int bar_pos = backgammon_get_bar_pos(color);
     if (from != bar_pos && game->board[bar_pos].count > 0) {
         return BACKGAMMON_ERR_MOVE_BAR_NEEDED;
     }
 
+    const int off_pos = backgammon_get_off_pos(color);
+    if (to == off_pos) {
+        if (!backgammon_game_can_bear_off(game, color)) {
+            return BACKGAMMON_ERR_MOVE_CANNOT_BEAR_OFF;
+        }
+        if (!hit_off) {
+            /* 如果不是恰好命中 off 位置，则必须要求没有比 from 距离 off 更远的棋子 */
+            int begin_pos, end_pos, direction;
+            if (color == BACKGAMMON_WHITE) {
+                end_pos = BACKGAMMON_BOARD_MIN_POS + BACKGAMMON_NUM_HOME_POSITIONS;
+                direction = +1;
+                begin_pos = from + direction;
+                assert(begin_pos <= end_pos);
+            } else {
+                end_pos = BACKGAMMON_BOARD_MAX_POS - BACKGAMMON_NUM_HOME_POSITIONS;
+                direction = -1;
+                begin_pos = from + direction;
+                assert(begin_pos >= end_pos);
+            }
+            for (int pos = begin_pos; pos != end_pos; pos += direction) {
+                if (game->board[pos].color == color && game->board[pos].count > 0) {
+                    return BACKGAMMON_ERR_MOVE_CANNOT_BEAR_OFF;
+                }
+            }
+        }
+    } else if (game->board[to].color != color && game->board[to].count > 1) {
+        return BACKGAMMON_ERR_MOVE_BLOCKED;
+    }
+    return to;
+}
+
+int backgammon_game_move(backgammon_game_t *game, backgammon_color_t color, int from, int to) {
+    assert(from >= 0 && from < BACKGAMMON_NUM_POSITIONS);
+    assert(to >= 0 && to < BACKGAMMON_NUM_POSITIONS);
+
     if (game->board[to].count == 0 || game->board[to].color == color) {
         /* 目标位置没有棋子或是己方棋子，则直接移动至目标位置即可 */
         game->board[to].color = color;
         game->board[to].count++;
         game->board[from].count--;
-    } else {
-        /* 敌方在此处有多个棋子时不可移动到此处 */
-        if (game->board[to].count > 1) {
-            return BACKGAMMON_ERR_MOVE_BLOCKED;
-        }
-        /* 敌方在此处恰有 1 个棋子，此时攻击敌方棋子到中间条上 */
-        const int opponent = game->board[to].color;
-        game->board[to].color = color;
-        game->board[to].count = 1;
-        game->board[from].count--;
-        const int opponent_bar_pos = backgammon_get_bar_pos(opponent);
-        game->board[opponent_bar_pos].color = opponent;
-        game->board[opponent_bar_pos].count++;
+        return 0;
     }
-    return BACKGAMMON_OK;
+    /* 敌方在此处恰有 1 个棋子，此时攻击敌方棋子到中间条上 */
+    assert(game->board[to].count == 1);
+    const int opponent = game->board[to].color;
+    game->board[to].color = color;
+    game->board[to].count = 1;
+    game->board[from].count--;
+    const int opponent_bar_pos = backgammon_get_bar_pos(opponent);
+    game->board[opponent_bar_pos].color = opponent;
+    game->board[opponent_bar_pos].count++;
+    return 1;
 }
 
 int backgammon_game_can_bear_off(const backgammon_game_t *game, backgammon_color_t color) {
@@ -390,10 +399,7 @@ int backgammon_game_encode_action(const backgammon_game_t *game, backgammon_colo
     backgammon_game_t new_game;
     memcpy(&new_game, game, sizeof(backgammon_game_t));
     for (int i = 0; i < num_moves; ++i) {
-        const int err = backgammon_game_move(&new_game, color, path[i]->from, path[i]->to);
-        if (err != BACKGAMMON_OK) {
-            return 0;
-        }
+        backgammon_game_move(&new_game, color, path[i]->from, path[i]->to);
     }
     /* 执行动作后切换到对手角度进行状态编码 */
     return backgammon_game_encode(&new_game, backgammon_get_opponent(color), vec);

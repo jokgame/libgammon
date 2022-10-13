@@ -14,11 +14,14 @@ typedef enum backgammon_color_t {
  * @brief 错误码
  */
 typedef enum backgammon_error_t {
-    BACKGAMMON_OK = 0,                        /* 成功 */
-    BACKGAMMON_ERR_MOVE_EMPTY = 1,            /* 移动空位置 */
-    BACKGAMMON_ERR_MOVE_OPPONENT_CHECKER = 2, /* 移动敌方棋子 */
-    BACKGAMMON_ERR_MOVE_BAR_NEEDED = 3,       /* 需要先移动 bar 上的棋子 */
-    BACKGAMMON_ERR_MOVE_BLOCKED = 4,          /* 目标位置被敌方占领 */
+    BACKGAMMON_OK = 0,                         /* 成功 */
+    BACKGAMMON_ERR_MOVE_TO_ORIGIN = -1,        /* 移动至原位置 */
+    BACKGAMMON_ERR_MOVE_EMPTY = -2,            /* 移动空位置 */
+    BACKGAMMON_ERR_MOVE_OPPONENT_CHECKER = -3, /* 移动敌方棋子 */
+    BACKGAMMON_ERR_MOVE_BAR_NEEDED = -4,       /* 需要先移动 bar 上的棋子 */
+    BACKGAMMON_ERR_MOVE_BLOCKED = -5,          /* 目标位置被敌方占领 */
+    BACKGAMMON_ERR_MOVE_OUT_OF_RANGE = -6,     /* 移动越界 */
+    BACKGAMMON_ERR_MOVE_CANNOT_BEAR_OFF = -7,  /* 不可 bear off */
 } backgammon_error_t;
 
 /**
@@ -87,6 +90,11 @@ struct backgammon_game_t *backgammon_game_new_with_board(const backgammon_grid_t
                                                          const int *positions, size_t size);
 
 /**
+ * @brief 拷贝游戏
+ */
+struct backgammon_game_t *backgammon_game_clone(const struct backgammon_game_t *game);
+
+/**
  * @brief 释放游戏
  *
  * @param game 当前游戏状态
@@ -140,16 +148,28 @@ void backgammon_action_visit(const backgammon_action_t *tree, backgammon_action_
                              void *ctx);
 
 /**
- * @brief 移动指定某方玩家的棋子
+ * @brief 判定指定玩家是否可以从 from 位置移动指定步数
+ *
+ * @param game 当前游戏状态
+ * @param color 当前玩家棋子颜色
+ * @param from 被移动棋子的位置
+ * @param steps 步数
+ * @return int 返回负数时表示出现错误，对应 backgammon_error_t 枚举，否则表示移动目标位置
+ */
+int backgammon_game_can_move(const struct backgammon_game_t *game, backgammon_color_t color,
+                             int from, int steps);
+
+/**
+ * @brief 移动指定某方玩家的棋子。该函数总假定参数都是合法的，调用该函数之前应该先检查是否可以移动。
  *
  * @param game 当前游戏状态
  * @param color 当前玩家棋子颜色
  * @param from 被移动棋子的位置
  * @param to 被移动棋子的目标位置
- * @return backgammon_color_t
+ * @return int 如果移动操作使对方棋子被攻击则返回 1， 否则返回 0
  */
-backgammon_error_t backgammon_game_move(struct backgammon_game_t *game, backgammon_color_t color,
-                                        int from, int to);
+int backgammon_game_move(struct backgammon_game_t *game, backgammon_color_t color, int from,
+                         int to);
 
 /**
  * @brief 查询指定玩家是否可以开始 bear off
@@ -173,7 +193,7 @@ backgammon_color_t backgammon_game_winner(const struct backgammon_game_t *game);
  *
  * @param game 当前游戏状态
  * @param color 当前玩家棋子颜色
- * @param vec 输出向量
+ * @param vec 输出向量，需要有 198 个元素
  * @return int 返回实际编码特征的个数
  */
 int backgammon_game_encode(const struct backgammon_game_t *game, backgammon_color_t color,
@@ -182,7 +202,7 @@ int backgammon_game_encode(const struct backgammon_game_t *game, backgammon_colo
 /**
  * @brief 获取原状态编码的反对称编码
  *
- * @param vec 输出向量
+ * @param vec 被反转的向量，需要有 198 个元素
  */
 void backgammon_game_reverse_features(double *vec);
 

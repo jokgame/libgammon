@@ -258,7 +258,7 @@ int main(int argc, char **argv) {
             } else {
                 /* play action */
                 for (const auto &move : context.best_action) {
-                    assert(backgammon_game_move(game, turn, move.from, move.to) == BACKGAMMON_OK);
+                    backgammon_game_move(game, turn, move.from, move.to);
                 }
                 if (verbose > 0) {
                     std::cout << "step " << steps << " " << player << ":"
