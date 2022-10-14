@@ -164,8 +164,19 @@ void backgammon_action_visit(const backgammon_action_t *tree, backgammon_action_
  * @param steps 步数
  * @return int 返回负数时表示出现错误，对应 backgammon_error_t 枚举，否则表示移动目标位置
  */
+int backgammon_game_can_move_from(const struct backgammon_game_t *game, backgammon_color_t color,
+                                  int from, int steps);
+
+/**
+ * @brief 判定指定玩家是否存在一个位置可以移动指定步数
+ *
+ * @param game 当前游戏状态
+ * @param color 当前玩家棋子颜色
+ * @param steps 步数
+ * @return int 存在时返回 1，否则返回 0
+ */
 int backgammon_game_can_move(const struct backgammon_game_t *game, backgammon_color_t color,
-                             int from, int steps);
+                             int steps);
 
 /**
  * @brief 移动指定某方玩家的棋子。该函数总假定参数都是合法的，调用该函数之前应该先检查是否可以移动。

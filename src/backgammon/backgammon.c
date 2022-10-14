@@ -133,7 +133,7 @@ static void backgammon_get_moves(const backgammon_game_t *game, backgammon_color
 static void backgammon_try_get_moves(const backgammon_game_t *game, backgammon_color_t color,
                                      backgammon_action_t *parent, const int *roll, int num_roll,
                                      int from) {
-    const int to = backgammon_game_can_move(game, color, from, roll[0]);
+    const int to = backgammon_game_can_move_from(game, color, from, roll[0]);
     if (to >= 0) {
         backgammon_game_t new_game;
         memcpy(&new_game, game, sizeof(backgammon_game_t));
@@ -153,10 +153,7 @@ static void backgammon_get_moves(const backgammon_game_t *game, backgammon_color
         backgammon_try_get_moves(game, color, parent, roll, num_roll, bar_pos);
         return;
     }
-    for (int pos = 0; pos < BACKGAMMON_NUM_POSITIONS; ++pos) {
-        if (backgammon_is_off_pos(pos) || backgammon_is_bar_pos(pos)) {
-            continue;
-        }
+    for (int pos = BACKGAMMON_BOARD_MIN_POS; pos <= BACKGAMMON_BOARD_MAX_POS; ++pos) {
         backgammon_try_get_moves(game, color, parent, roll, num_roll, pos);
     }
 }
@@ -213,8 +210,8 @@ void backgammon_action_visit(const backgammon_action_t *tree, backgammon_action_
     }
 }
 
-int backgammon_game_can_move(const backgammon_game_t *game, backgammon_color_t color, int from,
-                             int steps) {
+int backgammon_game_can_move_from(const backgammon_game_t *game, backgammon_color_t color, int from,
+                                  int steps) {
     /* from 位置越界检查 */
     if (from < 0 || from >= BACKGAMMON_NUM_POSITIONS) {
         return BACKGAMMON_ERR_MOVE_OUT_OF_RANGE;
@@ -284,6 +281,15 @@ int backgammon_game_can_move(const backgammon_game_t *game, backgammon_color_t c
         return BACKGAMMON_ERR_MOVE_BLOCKED;
     }
     return to;
+}
+
+int backgammon_game_can_move(const backgammon_game_t *game, backgammon_color_t color, int steps) {
+    for (int pos = BACKGAMMON_BOARD_MIN_POS; pos <= BACKGAMMON_BOARD_MAX_POS; ++pos) {
+        if (backgammon_game_can_move_from(game, color, pos, steps) >= 0) {
+            return 1;
+        }
+    }
+    return 0;
 }
 
 int backgammon_game_move(backgammon_game_t *game, backgammon_color_t color, int from, int to) {
