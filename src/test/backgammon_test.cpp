@@ -166,7 +166,7 @@ int main(int argc, char **argv) {
         return 1;
     }
     const char *filename = argv[1];
-    const int N = argc == 3 ? std::max(atoi(argv[2]), 1) : 10000;
+    const int N = argc == 3 ? std::max(atoi(argv[2]), 1) : 100;
 
     /* load TD-Gammon onnx */
     std::shared_ptr<TDGammonModel> model;

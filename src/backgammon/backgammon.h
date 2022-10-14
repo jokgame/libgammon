@@ -1,6 +1,9 @@
 #ifndef _BACKGAMMON_H_
 #define _BACKGAMMON_H_
 
+#include <stddef.h>
+#include <stdio.h>
+
 /**
  * @brief 棋子颜色
  */
@@ -88,6 +91,11 @@ struct backgammon_game_t *backgammon_game_new();
  */
 struct backgammon_game_t *backgammon_game_new_with_board(const backgammon_grid_t *grids,
                                                          const int *positions, size_t size);
+
+/**
+ * @brief 重置游戏状态
+ */
+void backgammon_game_reset(struct backgammon_game_t *game);
 
 /**
  * @brief 拷贝游戏

@@ -67,17 +67,7 @@ static int backgammon_add_moves(backgammon_color_t color, int pos, int moves, in
 
 backgammon_game_t *backgammon_game_new() {
     backgammon_game_t *game = (backgammon_game_t *)malloc(sizeof(backgammon_game_t));
-    memset(game, 0, sizeof(backgammon_game_t));
-    /* 白子初始位置 */
-    game->board[BACKGAMMON_BOARD_MIN_POS + 23] = backgammon_make_grid(BACKGAMMON_WHITE, 2);
-    game->board[BACKGAMMON_BOARD_MIN_POS + 12] = backgammon_make_grid(BACKGAMMON_WHITE, 5);
-    game->board[BACKGAMMON_BOARD_MIN_POS + 7] = backgammon_make_grid(BACKGAMMON_WHITE, 3);
-    game->board[BACKGAMMON_BOARD_MIN_POS + 5] = backgammon_make_grid(BACKGAMMON_WHITE, 5);
-    /* 黑子初始位置 */
-    game->board[BACKGAMMON_BOARD_MIN_POS + 0] = backgammon_make_grid(BACKGAMMON_BLACK, 2);
-    game->board[BACKGAMMON_BOARD_MIN_POS + 11] = backgammon_make_grid(BACKGAMMON_BLACK, 5);
-    game->board[BACKGAMMON_BOARD_MIN_POS + 16] = backgammon_make_grid(BACKGAMMON_BLACK, 3);
-    game->board[BACKGAMMON_BOARD_MIN_POS + 18] = backgammon_make_grid(BACKGAMMON_BLACK, 5);
+    backgammon_game_reset(game);
     return game;
 }
 
@@ -89,6 +79,20 @@ backgammon_game_t *backgammon_game_new_with_board(const backgammon_grid_t *grids
         game->board[positions[i]] = grids[i];
     }
     return game;
+}
+
+void backgammon_game_reset(struct backgammon_game_t *game) {
+    memset(game, 0, sizeof(backgammon_game_t));
+    /* 白子初始位置 */
+    game->board[BACKGAMMON_BOARD_MIN_POS + 23] = backgammon_make_grid(BACKGAMMON_WHITE, 2);
+    game->board[BACKGAMMON_BOARD_MIN_POS + 12] = backgammon_make_grid(BACKGAMMON_WHITE, 5);
+    game->board[BACKGAMMON_BOARD_MIN_POS + 7] = backgammon_make_grid(BACKGAMMON_WHITE, 3);
+    game->board[BACKGAMMON_BOARD_MIN_POS + 5] = backgammon_make_grid(BACKGAMMON_WHITE, 5);
+    /* 黑子初始位置 */
+    game->board[BACKGAMMON_BOARD_MIN_POS + 0] = backgammon_make_grid(BACKGAMMON_BLACK, 2);
+    game->board[BACKGAMMON_BOARD_MIN_POS + 11] = backgammon_make_grid(BACKGAMMON_BLACK, 5);
+    game->board[BACKGAMMON_BOARD_MIN_POS + 16] = backgammon_make_grid(BACKGAMMON_BLACK, 3);
+    game->board[BACKGAMMON_BOARD_MIN_POS + 18] = backgammon_make_grid(BACKGAMMON_BLACK, 5);
 }
 
 backgammon_game_t *backgammon_game_clone(const struct backgammon_game_t *game) {
