@@ -76,7 +76,7 @@ typedef struct backgammon_grid_t {
  * null 时，忽略其 from 和 to，此时只是一个抽象根节点。
  */
 typedef struct backgammon_action_t {
-    int from, to;                         /* move: from -> to */
+    int from, steps, to;                  /* move: from -> to */
     struct backgammon_action_t *children; /* first child */
     struct backgammon_action_t *sibling;  /* next sibling */
 } backgammon_action_t;

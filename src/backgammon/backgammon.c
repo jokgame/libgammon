@@ -107,7 +107,8 @@ void backgammon_game_free(backgammon_game_t *game) {
     }
 }
 
-static backgammon_action_t *backgammon_append_move(backgammon_action_t *parent, int from, int to) {
+static backgammon_action_t *backgammon_append_move(backgammon_action_t *parent, int from, int steps,
+                                                   int to) {
     backgammon_action_t *dst;
     if (!parent->children) {
         parent->children = (backgammon_action_t *)malloc(sizeof(backgammon_action_t));
@@ -123,6 +124,7 @@ static backgammon_action_t *backgammon_append_move(backgammon_action_t *parent, 
         dst = dst->sibling;
     }
     dst->from = from;
+    dst->steps = steps;
     dst->to = to;
     return dst;
 }
@@ -138,7 +140,7 @@ static void backgammon_try_get_moves(const backgammon_game_t *game, backgammon_c
         backgammon_game_t new_game;
         memcpy(&new_game, game, sizeof(backgammon_game_t));
         backgammon_game_move(&new_game, color, from, to);
-        backgammon_action_t *node = backgammon_append_move(parent, from, to);
+        backgammon_action_t *node = backgammon_append_move(parent, from, roll[0], to);
         if (num_roll > 1) {
             backgammon_get_moves(&new_game, color, node, roll + 1, num_roll - 1);
         }
