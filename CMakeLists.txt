@@ -10,7 +10,12 @@ option(ENABLE_TEST "Enable test." OFF)
 
 # build library
 aux_source_directory(./src/backgammon src_libgammon)
-add_library(gammon ${src_libgammon})
+add_library(gammon_static STATIC ${src_libgammon})
+set_target_properties(gammon_static PROPERTIES OUTPUT_NAME gammon)
+if (${CMAKE_SYSTEM_NAME} MATCHES "Android" OR ${CMAKE_SYSTEM_NAME} MATCHES "Windows")
+	add_library(gammon_shared SHARED ${src_libgammon})
+	set_target_properties(gammon_shared PROPERTIES OUTPUT_NAME gammon)
+endif()
 
 # build gammon_test
 if (ENABLE_TEST)
