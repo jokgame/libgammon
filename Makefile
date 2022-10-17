@@ -9,7 +9,7 @@ all: default ios android
 ios:
 	@mkdir -p build/ios
 	cd build/ios \
-		&& cmake ../.. -G Xcode -DCMAKE_TOOLCHAIN_FILE=../../ios.toolchain.cmake -DPLATFORM=OS64 -DENABLE_BITCODE=FALSE \
+		&& cmake ../.. -G Xcode -DCMAKE_TOOLCHAIN_FILE=../../cmake/ios.toolchain.cmake -DPLATFORM=OS64 -DENABLE_BITCODE=FALSE \
 		&& cmake --build . --config Release
 
 .PHONY: android
