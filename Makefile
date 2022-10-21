@@ -29,17 +29,5 @@ endif
 test: build
 	./build/default/bin/gammon_test ./data/tdgammon.onnx
 
-windows: win32 win64
-
-win32:
-	@mkdir -p windows/win32
-	cd windows/win32 \
-	&& cmake -G "Visual Studio 16 2019" -A Win32 -S ../..
-
-win64:
-	@mkdir -p windows/win64
-	cd windows/win64 \
-	&& cmake -G "Visual Studio 16 2019" -A x64 -S ../..
-
 clean:
 	rm -rf build
