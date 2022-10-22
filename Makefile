@@ -1,9 +1,9 @@
-.PHONY: default
-default:
+.PHONY: build
+build:
 	@mkdir -p build/default
 	cd build/default && cmake ../.. -DENABLE_TEST=ON && make
 
-all: default ios android
+all: build ios android
 
 .PHONY: ios
 ios:
