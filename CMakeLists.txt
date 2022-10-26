@@ -9,8 +9,8 @@ set(CMAKE_C_FLAGS "-std=c17 ${CMAKE_C_FLAGS}")
 option(backgammon_BUILD_PYTHON "build python." OFF)
 option(backgammon_BUILD_TEST "build test." OFF)
 
-# build pybind
 if (backgammon_BUILD_PYTHON)
+	# build pybind
 	add_subdirectory(./third_party/pybind11)
 	pybind11_add_module(backgammon src/backgammon/backgammon.c src/python/py_backgammon.cpp)
 else()
@@ -19,10 +19,10 @@ else()
 	add_library(gammon_static STATIC ${src_libgammon})
 	set_target_properties(gammon_static PROPERTIES OUTPUT_NAME gammon)
 	if (${CMAKE_SYSTEM_NAME} MATCHES "Android" OR ${CMAKE_SYSTEM_NAME} MATCHES "Windows")
+		# build shared lib for android and windows
 		add_library(gammon_shared SHARED ${src_libgammon})
 		set_target_properties(gammon_shared PROPERTIES OUTPUT_NAME gammon)
 	endif()
-
 	# build gammon_test
 	if (backgammon_BUILD_TEST)
 		aux_source_directory(./src/test src_test)

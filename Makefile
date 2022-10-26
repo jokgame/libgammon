@@ -3,6 +3,7 @@ build:
 	@mkdir -p build/default
 	cd build/default && cmake ../.. -DENABLE_TEST=ON && make
 
+.PHONY: all
 all: build ios android
 
 .PHONY: ios
@@ -13,24 +14,26 @@ ios:
 		&& cmake --build . --config Release
 
 .PHONY: android
-android: check_android_toolchain_cmake
+android: _check_android_toolchain_cmake
 	@mkdir -p build/android
 	cd build/android \
 		&& cmake ../.. -DCMAKE_TOOLCHAIN_FILE=${ANDROID_TOOLCHAIN_CMAKE} \
 		&& cmake --build . --config Release
 
-.PHONY: check_android_toolchain_cmake
-check_android_toolchain_cmake:
+.PHONY: _check_android_toolchain_cmake
+_check_android_toolchain_cmake:
 ifndef ANDROID_TOOLCHAIN_CMAKE
 	$(error ANDROID_TOOLCHAIN_CMAKE is undefined)
 endif
+
+.PHONY: pybind
+pybind:
+	python3 setup.py install
 
 .PHONY: test
 test: build
 	./build/default/bin/gammon_test ./data/tdgammon.onnx
 
+.PHONY: clean
 clean:
-	rm -rf build
-
-pybind:
-	python3 setup.py install
+	rm -rf build dist backgammon.egg-info
