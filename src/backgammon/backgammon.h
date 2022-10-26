@@ -274,6 +274,7 @@ void backgammon_game_reverse_features(double *vec);
  * @param vec 输出向量，需要有 198 个元素
  * @return int 编码特征个数
  */
+BACKGAMMON_API
 int backgammon_game_encode_action(const struct backgammon_game_t *game, backgammon_color_t color,
                                   const backgammon_action_t **path, int num_moves, double *vec);
 
@@ -282,6 +283,7 @@ int backgammon_game_encode_action(const struct backgammon_game_t *game, backgamm
  *
  * @param game 当前游戏状态
  */
+BACKGAMMON_API
 void backgammon_game_print(FILE *out, const struct backgammon_game_t *game);
 
 #ifdef __cplusplus
