@@ -31,3 +31,6 @@ test: build
 
 clean:
 	rm -rf build
+
+pybind:
+	python3 setup.py install
