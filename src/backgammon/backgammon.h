@@ -1,6 +1,28 @@
 #ifndef _BACKGAMMON_H_
 #define _BACKGAMMON_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#if defined(_WIN32)
+
+/* for windows */
+#ifdef BACKGAMMON_EXPORTS
+#define BACKGAMMON_API __declspec(dllexport)
+#elif !defined BACKGAMMON_NO_IMPORTS
+#define BACKGAMMON_API __declspec(dllimport)
+#else
+#define BACKGAMMON_API
+#endif
+
+#else
+
+/* for non-windows */
+#define BACKGAMMON_API
+
+#endif
+
 #include <stddef.h>
 #include <stdio.h>
 
@@ -84,22 +106,26 @@ typedef struct backgammon_action_t {
 /**
  * @brief 创建新游戏
  */
+BACKGAMMON_API
 struct backgammon_game_t *backgammon_game_new();
 
 /**
  * @brief 使用指定的格子信息创建新游戏
  */
+BACKGAMMON_API
 struct backgammon_game_t *backgammon_game_new_with_board(const backgammon_grid_t *grids,
                                                          const int *positions, size_t size);
 
 /**
  * @brief 重置游戏状态
  */
+BACKGAMMON_API
 void backgammon_game_reset(struct backgammon_game_t *game);
 
 /**
  * @brief 拷贝游戏
  */
+BACKGAMMON_API
 struct backgammon_game_t *backgammon_game_clone(const struct backgammon_game_t *game);
 
 /**
@@ -107,6 +133,7 @@ struct backgammon_game_t *backgammon_game_clone(const struct backgammon_game_t *
  *
  * @param game 当前游戏状态
  */
+BACKGAMMON_API
 void backgammon_game_free(struct backgammon_game_t *game);
 
 /**
@@ -116,6 +143,7 @@ void backgammon_game_free(struct backgammon_game_t *game);
  * @param pos 指定位置
  * @return backgammon_grid_t
  */
+BACKGAMMON_API
 backgammon_grid_t backgammon_game_get_grid(const struct backgammon_game_t *game, int pos);
 
 /**
@@ -126,6 +154,7 @@ backgammon_grid_t backgammon_game_get_grid(const struct backgammon_game_t *game,
  * @param roll 投掷的每个骰子的点数
  * @return backgammon_action_t* 返回一棵动作树，每个叶子节点对应的路径代表一个合法动作（含多次移动）
  */
+BACKGAMMON_API
 backgammon_action_t *backgammon_game_get_actions(const struct backgammon_game_t *game,
                                                  backgammon_color_t color, const int *roll);
 
@@ -134,6 +163,7 @@ backgammon_action_t *backgammon_game_get_actions(const struct backgammon_game_t 
  *
  * @param tree 动作树
  */
+BACKGAMMON_API
 void backgammon_action_free(backgammon_action_t *tree);
 
 /**
@@ -143,6 +173,7 @@ void backgammon_action_free(backgammon_action_t *tree);
  * @param path 叶子节点对应的路径，该路径不包含根节点
  * @param size 路径长度，即所含节点数量
  */
+BACKGAMMON_API
 typedef void (*backgammon_action_visitor)(void *ctx, const backgammon_action_t **path, int size);
 
 /**
@@ -152,6 +183,7 @@ typedef void (*backgammon_action_visitor)(void *ctx, const backgammon_action_t *
  * @param visitor 动作树叶节点遍历回调函数
  * @param ctx 自定义透传上下文参数，用于在回调函数中使用
  */
+BACKGAMMON_API
 void backgammon_action_visit(const backgammon_action_t *tree, backgammon_action_visitor visitor,
                              void *ctx);
 
@@ -164,6 +196,7 @@ void backgammon_action_visit(const backgammon_action_t *tree, backgammon_action_
  * @param steps 步数
  * @return int 返回负数时表示出现错误，对应 backgammon_error_t 枚举，否则表示移动目标位置
  */
+BACKGAMMON_API
 int backgammon_game_can_move_from(const struct backgammon_game_t *game, backgammon_color_t color,
                                   int from, int steps);
 
@@ -175,6 +208,7 @@ int backgammon_game_can_move_from(const struct backgammon_game_t *game, backgamm
  * @param steps 步数
  * @return int 存在时返回 1，否则返回 0
  */
+BACKGAMMON_API
 int backgammon_game_can_move(const struct backgammon_game_t *game, backgammon_color_t color,
                              int steps);
 
@@ -187,6 +221,7 @@ int backgammon_game_can_move(const struct backgammon_game_t *game, backgammon_co
  * @param to 被移动棋子的目标位置
  * @return int 如果移动操作使对方棋子被攻击则返回 1， 否则返回 0
  */
+BACKGAMMON_API
 int backgammon_game_move(struct backgammon_game_t *game, backgammon_color_t color, int from,
                          int to);
 
@@ -197,6 +232,7 @@ int backgammon_game_move(struct backgammon_game_t *game, backgammon_color_t colo
  * @param color 当前玩家棋子颜色
  * @return int 可以 bear off 时返回 1，否则返回 0
  */
+BACKGAMMON_API
 int backgammon_game_can_bear_off(const struct backgammon_game_t *game, backgammon_color_t color);
 
 /**
@@ -205,6 +241,7 @@ int backgammon_game_can_bear_off(const struct backgammon_game_t *game, backgammo
  * @param game 当前游戏状态
  * @return backgammon_color_t
  */
+BACKGAMMON_API
 backgammon_color_t backgammon_game_winner(const struct backgammon_game_t *game);
 
 /**
@@ -215,6 +252,7 @@ backgammon_color_t backgammon_game_winner(const struct backgammon_game_t *game);
  * @param vec 输出向量，需要有 198 个元素
  * @return int 返回实际编码特征的个数
  */
+BACKGAMMON_API
 int backgammon_game_encode(const struct backgammon_game_t *game, backgammon_color_t color,
                            double *vec);
 
@@ -223,6 +261,7 @@ int backgammon_game_encode(const struct backgammon_game_t *game, backgammon_colo
  *
  * @param vec 被反转的向量，需要有 198 个元素
  */
+BACKGAMMON_API
 void backgammon_game_reverse_features(double *vec);
 
 /**
@@ -244,5 +283,9 @@ int backgammon_game_encode_action(const struct backgammon_game_t *game, backgamm
  * @param game 当前游戏状态
  */
 void backgammon_game_print(FILE *out, const struct backgammon_game_t *game);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // _BACKGAMMON_H_

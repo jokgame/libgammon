@@ -32,9 +32,7 @@
  */
 #include <onnxruntime/core/session/onnxruntime_cxx_api.h>
 
-extern "C" {
 #include "../backgammon/backgammon.h"
-}
 
 static void usage(const char *name) { printf("Usage: %s <onnx model filename> [N]\n", name); }
 
