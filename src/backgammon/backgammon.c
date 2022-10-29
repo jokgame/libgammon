@@ -300,6 +300,8 @@ int backgammon_game_can_move(const backgammon_game_t *game, backgammon_color_t c
 int backgammon_game_move(backgammon_game_t *game, backgammon_color_t color, int from, int to) {
     assert(from >= 0 && from < BACKGAMMON_NUM_POSITIONS);
     assert(to >= 0 && to < BACKGAMMON_NUM_POSITIONS);
+    assert(game->board[from].color == color);
+    assert(game->board[from].count > 0);
 
     if (game->board[to].count == 0 || game->board[to].color == color) {
         /* 目标位置没有棋子或是己方棋子，则直接移动至目标位置即可 */
