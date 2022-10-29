@@ -278,6 +278,26 @@ BACKGAMMON_API
 int backgammon_game_encode_action(const struct backgammon_game_t *game, backgammon_color_t color,
                                   const backgammon_action_t **path, int num_moves, double *vec);
 
+typedef struct backgammon_move_s {
+    int from;
+    int steps;
+    int to;
+} backgammon_move_t;
+
+/**
+ * @brief 类似与 backgammon_game_encode_action，按 TD-Gammon 算法编码执行指定动作后的棋盘状态
+ *
+ * @param game 当前游戏状态
+ * @param color 当前玩家棋子颜色
+ * @param path 构成动作的所有移动操作
+ * @param num_moves 移动操作个数
+ * @param vec 输出向量，需要有 198 个元素
+ * @return int 编码特征个数
+ */
+BACKGAMMON_API
+int backgammon_game_encode_moves(const struct backgammon_game_t *game, backgammon_color_t color,
+                                 const backgammon_move_t *moves, int num_moves, double *vec);
+
 /**
  * @brief 打印游戏状态
  *

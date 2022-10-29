@@ -183,8 +183,10 @@ backgammon_action_t *backgammon_game_get_actions(const backgammon_game_t *game,
 
 void backgammon_action_free(backgammon_action_t *tree) {
     if (tree) {
-        for (backgammon_action_t *child = tree->children; !!child; child = child->sibling) {
+        for (backgammon_action_t *child = tree->children; !!child;) {
+            backgammon_action_t *next = child->sibling;
             backgammon_action_free(child);
+            child = next;
         }
         free(tree);
     }
@@ -413,6 +415,17 @@ int backgammon_game_encode_action(const backgammon_game_t *game, backgammon_colo
     memcpy(&new_game, game, sizeof(backgammon_game_t));
     for (int i = 0; i < num_moves; ++i) {
         backgammon_game_move(&new_game, color, path[i]->from, path[i]->to);
+    }
+    /* 执行动作后切换到对手角度进行状态编码 */
+    return backgammon_game_encode(&new_game, backgammon_get_opponent(color), vec);
+}
+
+int backgammon_game_encode_moves(const struct backgammon_game_t *game, backgammon_color_t color,
+                                 const backgammon_move_t *moves, int num_moves, double *vec) {
+    backgammon_game_t new_game;
+    memcpy(&new_game, game, sizeof(backgammon_game_t));
+    for (int i = 0; i < num_moves; ++i) {
+        backgammon_game_move(&new_game, color, moves[i].from, moves[i].to);
     }
     /* 执行动作后切换到对手角度进行状态编码 */
     return backgammon_game_encode(&new_game, backgammon_get_opponent(color), vec);
