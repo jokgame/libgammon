@@ -7,11 +7,10 @@ import subprocess
 import sys
 from pathlib import Path
 
-from setuptools import Extension, setup
+from setuptools import Extension, find_packages, setup
 from setuptools.command.build_ext import build_ext
 
-version = '0.1'
-MOD = 'backgammon'
+version = '0.1.0'
 
 # Convert distutils Windows platform specifiers to CMake -A arguments
 PLAT_TO_CMAKE = {
@@ -24,6 +23,8 @@ PLAT_TO_CMAKE = {
 # A CMakeExtension needs a sourcedir instead of a file list.
 # The name must be the _single_ output extension from the CMake build.
 # If you need multiple extensions, see scikit-build.
+
+
 class CMakeExtension(Extension):
     def __init__(self, name: str, sourcedir: str = "") -> None:
         super().__init__(name, sources=[])
@@ -130,17 +131,14 @@ class CMakeBuild(build_ext):
 # The information here can also be placed in setup.cfg - better separation of
 # logic and declaration, and simpler if you include description/version in a file.
 setup(
-    name=MOD,
-    version = version,
-    description = "a library for backgammon game env",
-    classifiers=[
-      "Programming Language :: Python",
-    ],
-    author="Dean Moldovan",
-    long_description="",
-    ext_modules=[CMakeExtension(MOD)],
+    name="libgammon",
+    version=version,
+    description="a library for backgammon game env",
+    author="mkideal",
+    ext_modules=[CMakeExtension("_libgammon")],
+    packages=find_packages(),
+    install_requires=["gym"],
     cmdclass={"build_ext": CMakeBuild},
     zip_safe=False,
     python_requires=">=3.6",
 )
-

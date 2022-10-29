@@ -12,17 +12,15 @@ option(backgammon_BUILD_TEST "build test." OFF)
 if (backgammon_BUILD_PYTHON)
 	# build pybind
 	add_subdirectory(./third_party/pybind11)
-	pybind11_add_module(backgammon src/backgammon/backgammon.c src/python/py_backgammon.cpp)
+	pybind11_add_module(_libgammon src/backgammon/backgammon.c libgammon/pybind.cpp)
 else()
 	# build library
 	aux_source_directory(./src/backgammon src_libgammon)
 	add_library(gammon_static STATIC ${src_libgammon})
 	set_target_properties(gammon_static PROPERTIES OUTPUT_NAME gammon)
-	if (${CMAKE_SYSTEM_NAME} MATCHES "Android" OR ${CMAKE_SYSTEM_NAME} MATCHES "Windows")
-		# build shared lib for android and windows
-		add_library(gammon_shared SHARED ${src_libgammon})
-		set_target_properties(gammon_shared PROPERTIES OUTPUT_NAME gammon)
-	endif()
+	# build shared lib for android and windows
+	add_library(gammon_shared SHARED ${src_libgammon})
+	set_target_properties(gammon_shared PROPERTIES OUTPUT_NAME gammon)
 	# build gammon_test
 	if (backgammon_BUILD_TEST)
 		aux_source_directory(./src/test src_test)

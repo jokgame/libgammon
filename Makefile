@@ -1,7 +1,7 @@
 .PHONY: build
 build:
 	@mkdir -p build/default
-	cd build/default && cmake ../.. -DENABLE_TEST=ON && make
+	cd build/default && cmake ../.. -Dbackgammon_BUILD_TEST=ON && make
 
 .PHONY: all
 all: build ios android
@@ -27,7 +27,7 @@ ifndef ANDROID_TOOLCHAIN_CMAKE
 endif
 
 .PHONY: pybind
-pybind:
+py:
 	python3 setup.py install
 
 .PHONY: test
@@ -36,4 +36,4 @@ test: build
 
 .PHONY: clean
 clean:
-	rm -rf build dist backgammon.egg-info
+	rm -rf build dist *.egg-info

@@ -1,9 +1,11 @@
+#include <exception>
 #include <map>
 #include <vector>
 
-#include "../../third_party/pybind11/include/pybind11/pybind11.h"
+#include "../third_party/pybind11/include/pybind11/pybind11.h"
+#include "../third_party/pybind11/include/pybind11/stl.h"
 
-#include "../backgammon/backgammon.h"
+#include "../src/backgammon/backgammon.h"
 
 class Grid {
   public:
@@ -26,7 +28,7 @@ class Grid {
 };
 
 struct Move {
-    int from{0};
+    int pos{0};
     int steps{0};
     int to{0};
 };
@@ -62,9 +64,10 @@ class Game {
     }
 
     std::vector<Action> get_actions(backgammon_color_t color, const std::vector<int> &roll) const {
-        std::vector<Action> actions;
         backgammon_action_t *root = backgammon_game_get_actions(m_game, color, roll.data());
-
+        if (root->children == nullptr) {
+            return {};
+        }
         struct VisitorContext {
             backgammon_game_t *game{nullptr};
             backgammon_color_t turn;
@@ -78,16 +81,21 @@ class Game {
                 VisitorContext *context = (VisitorContext *)ctx;
                 std::vector<Move> moves(size);
                 for (int i = 0; i < size; ++i) {
-                    moves[i].from = path[i]->from;
+                    moves[i].pos = path[i]->from;
                     moves[i].steps = path[i]->steps;
                     moves[i].to = path[i]->to;
                 }
-                context->actions.push_back(Action(std::move(moves)));
+                context->actions.push_back(Action(moves));
             },
             &context);
         backgammon_action_free(root);
-        actions = std::move(context.actions);
-        return actions;
+        return std::move(context.actions);
+    }
+
+    std::vector<double> encode(backgammon_color_t color) const {
+        std::vector<double> vec(198);
+        backgammon_game_encode(m_game, color, vec.data());
+        return vec;
     }
 
     std::vector<double> encode_action(backgammon_color_t color, const Action &action) const {
@@ -97,7 +105,7 @@ class Game {
         for (int i = 0; i < n; ++i) {
             const auto &m = action.get_move(i);
             backgammon_action_t *a = (backgammon_action_t *)malloc(sizeof(backgammon_action_t));
-            a->from = m.from;
+            a->from = m.to;
             a->steps = m.steps;
             a->to = m.to;
             path[i] = a;
@@ -109,16 +117,16 @@ class Game {
         return vec;
     }
 
-    bool can_move_from(backgammon_color_t color, int from, int steps) const {
-        return backgammon_game_can_move_from(m_game, color, from, steps);
+    bool can_move_from(backgammon_color_t color, int pos, int steps) const {
+        return backgammon_game_can_move_from(m_game, color, pos, steps);
     }
 
     bool can_move(backgammon_color_t color, int steps) const {
         return backgammon_game_can_move(m_game, color, steps);
     }
 
-    bool move(backgammon_color_t color, int from, int to) {
-        return backgammon_game_move(m_game, color, from, to);
+    bool move(backgammon_color_t color, int pos, int to) {
+        return backgammon_game_move(m_game, color, pos, to);
     }
 
     bool can_bear_off(backgammon_color_t color) {
@@ -131,13 +139,25 @@ class Game {
     struct backgammon_game_t *m_game{nullptr};
 };
 
-PYBIND11_MODULE(backgammon, mod) {
+PYBIND11_MODULE(_libgammon, mod) {
     namespace py = pybind11;
 
+    enum position_t { _placeholder_ };
+    py::enum_<position_t>(mod, "Position")
+        .value("BLACK_BAR_POS", (position_t)BACKGAMMON_BLACK_BAR_POS)
+        .value("BOARD_MIN_POS", (position_t)BACKGAMMON_BOARD_MIN_POS)
+        .value("BOARD_MAX_POS", (position_t)BACKGAMMON_BOARD_MAX_POS)
+        .value("WHITE_BAR_POS", (position_t)BACKGAMMON_WHITE_BAR_POS)
+        .value("WHITE_OFF_POS", (position_t)BACKGAMMON_WHITE_OFF_POS)
+        .value("BLACK_OFF_POS", (position_t)BACKGAMMON_BLACK_OFF_POS)
+        .value("NUM_POSITIONS", (position_t)BACKGAMMON_NUM_POSITIONS)
+        .value("NUM_HOME_POSITIONS", (position_t)BACKGAMMON_NUM_HOME_POSITIONS)
+        .export_values();
+
     py::enum_<backgammon_color_t>(mod, "Color")
-        .value("NoColor", backgammon_color_t::BACKGAMMON_NOCOLOR)
-        .value("White", backgammon_color_t::BACKGAMMON_WHITE)
-        .value("Black", backgammon_color_t::BACKGAMMON_BLACK)
+        .value("NOCOLOR", backgammon_color_t::BACKGAMMON_NOCOLOR)
+        .value("WHITE", backgammon_color_t::BACKGAMMON_WHITE)
+        .value("BLACK", backgammon_color_t::BACKGAMMON_BLACK)
         .export_values();
 
     py::class_<Grid>(mod, "Grid")
@@ -147,7 +167,7 @@ PYBIND11_MODULE(backgammon, mod) {
         .def_property("count", &Grid::count, &Grid::set_count);
 
     py::class_<Move>(mod, "Move")
-        .def_readwrite("from", &Move::from)
+        .def_readwrite("pos", &Move::pos)
         .def_readwrite("steps", &Move::steps)
         .def_readwrite("to", &Move::to);
 
@@ -162,6 +182,7 @@ PYBIND11_MODULE(backgammon, mod) {
         .def("reset", &Game::reset)
         .def("grid", &Game::grid)
         .def("get_actions", &Game::get_actions)
+        .def("encode", &Game::encode)
         .def("encode_action", &Game::encode_action)
         .def("can_move_from", &Game::can_move_from)
         .def("can_move", &Game::can_move)
