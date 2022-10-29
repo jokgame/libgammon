@@ -151,12 +151,12 @@ backgammon_grid_t backgammon_game_get_grid(const struct backgammon_game_t *game,
  *
  * @param game 当前游戏状态
  * @param color 当前玩家棋子颜色
- * @param roll 投掷的每个骰子的点数
+ * @param roll1, roll2 投掷的 2 个骰子的点数
  * @return backgammon_action_t* 返回一棵动作树，每个叶子节点对应的路径代表一个合法动作（含多次移动）
  */
 BACKGAMMON_API
 backgammon_action_t *backgammon_game_get_actions(const struct backgammon_game_t *game,
-                                                 backgammon_color_t color, const int *roll);
+                                                 backgammon_color_t color, int roll1, int roll2);
 
 /**
  * @brief 释放动作树

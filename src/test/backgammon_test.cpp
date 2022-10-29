@@ -128,7 +128,8 @@ int test() {
     positions[size++] = BACKGAMMON_BOARD_MIN_POS + 2;
 
     backgammon_game_t *game = backgammon_game_new_with_board(grids, positions, size);
-    backgammon_action_t *actions = backgammon_game_get_actions(game, BACKGAMMON_WHITE, roll);
+    backgammon_action_t *actions =
+        backgammon_game_get_actions(game, BACKGAMMON_WHITE, roll[0], roll[1]);
 
     print_actions(stderr, actions);
 
@@ -205,7 +206,8 @@ int main(int argc, char **argv) {
             }
 
             /* get actions */
-            backgammon_action_t *actions = backgammon_game_get_actions(game, turn, roll);
+            backgammon_action_t *actions =
+                backgammon_game_get_actions(game, turn, roll[0], roll[1]);
             if (verbose > 1) {
                 fprintf(stderr, "---------------- ACTION ----------------\n");
                 print_actions(stderr, actions);

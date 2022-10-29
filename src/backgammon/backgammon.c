@@ -166,14 +166,15 @@ backgammon_grid_t backgammon_game_get_grid(const backgammon_game_t *game, int po
 }
 
 backgammon_action_t *backgammon_game_get_actions(const backgammon_game_t *game,
-                                                 backgammon_color_t color, const int *roll) {
+                                                 backgammon_color_t color, int roll1, int roll2) {
     backgammon_action_t *root = (backgammon_action_t *)malloc(sizeof(backgammon_action_t));
     memset(root, 0, sizeof(backgammon_action_t));
-    if (roll[0] == roll[1]) {
-        int duproll[BACKGAMMON_NUM_DICES * 2] = {roll[0], roll[0], roll[0], roll[0]};
+    if (roll1 == roll2) {
+        int duproll[BACKGAMMON_NUM_DICES * 2] = {roll1, roll1, roll1, roll1};
         backgammon_get_moves(game, color, root, duproll, BACKGAMMON_NUM_DICES * 2);
     } else {
-        int revroll[BACKGAMMON_NUM_DICES] = {roll[1], roll[0]};
+        int roll[BACKGAMMON_NUM_DICES] = {roll1, roll2};
+        int revroll[BACKGAMMON_NUM_DICES] = {roll2, roll1};
         backgammon_get_moves(game, color, root, roll, BACKGAMMON_NUM_DICES);
         backgammon_get_moves(game, color, root, revroll, BACKGAMMON_NUM_DICES);
     }
