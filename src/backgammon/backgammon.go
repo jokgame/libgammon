@@ -47,6 +47,8 @@ const NUM_HOME_POSITIONS = C.BACKGAMMON_NUM_HOME_POSITIONS /* Home 区域位置�
 const BACKGAMMON_NUM_DICES = C.BACKGAMMON_NUM_DICES       /* 骰子数量 */
 const BACKGAMMON_NUM_CHECKERS = C.BACKGAMMON_NUM_CHECKERS /* 每一方的棋子个数 */
 
+type Int = C.int
+
 // Color represents color of checker or player
 type Color = C.backgammon_color_t
 
@@ -94,12 +96,12 @@ func (err Error) Error() string {
 // Grids represents information for each position in board
 type Grid struct {
 	Color Color
-	Count C.int
+	Count Int
 }
 
 // Move represents information for each movement of checker
 type Move struct {
-	From, Steps, To C.int
+	From, Steps, To Int
 }
 
 // Action represents a action tree from virtual root
@@ -181,7 +183,7 @@ func (game *Game) Reset(grids map[int]Grid) {
 				cgrid.color = None
 				cgrid.count = 0
 			}
-			C.backgammon_game_set_grid(game.wrapper.ptr, C.int(i), cgrid)
+			C.backgammon_game_set_grid(game.wrapper.ptr, Int(i), cgrid)
 		}
 	} else {
 		C.backgammon_game_reset(game.wrapper.ptr)
@@ -197,7 +199,7 @@ func (game *Game) Clone() *Game {
 
 // GetGrid retrives grid information
 func (game *Game) GetGrid(pos int) Grid {
-	cgrid := C.backgammon_game_get_grid(game.wrapper.ptr, C.int(pos))
+	cgrid := C.backgammon_game_get_grid(game.wrapper.ptr, Int(pos))
 	return Grid{
 		Color: cgrid.color,
 		Count: cgrid.count,
@@ -209,12 +211,12 @@ func (game *Game) SetGrid(pos int, grid Grid) {
 	var cgrid C.backgammon_grid_t
 	cgrid.color = grid.Color
 	cgrid.count = grid.Count
-	C.backgammon_game_set_grid(game.wrapper.ptr, C.int(pos), cgrid)
+	C.backgammon_game_set_grid(game.wrapper.ptr, Int(pos), cgrid)
 }
 
 // GetActions gets all legal actions
 func (game *Game) GetActions(color Color, roll1, roll2 int) *Action {
-	caction := C.backgammon_game_get_actions(game.wrapper.ptr, color, C.int(roll1), C.int(roll2))
+	caction := C.backgammon_game_get_actions(game.wrapper.ptr, color, Int(roll1), Int(roll2))
 	action := newAction(caction)
 	C.backgammon_action_free(caction)
 	return action
@@ -222,17 +224,17 @@ func (game *Game) GetActions(color Color, roll1, roll2 int) *Action {
 
 // CanMoveFrom reports whether the checker at `from` can be moved by steps `steps`
 func (game *Game) CanMoveFrom(color Color, from int, steps int) bool {
-	return C.backgammon_game_can_move_from(game.wrapper.ptr, color, C.int(from), C.int(steps)) == 1
+	return C.backgammon_game_can_move_from(game.wrapper.ptr, color, Int(from), Int(steps)) == 1
 }
 
 // CanMove reports whether there is a checker which can be moved by steps `steps`
 func (game *Game) CanMove(color Color, steps int) bool {
-	return C.backgammon_game_can_move(game.wrapper.ptr, color, C.int(steps)) == 1
+	return C.backgammon_game_can_move(game.wrapper.ptr, color, Int(steps)) == 1
 }
 
 // Move moves the checker at `from` to `to`
 func (game *Game) Move(color Color, from, to int) bool {
-	return C.backgammon_game_move(game.wrapper.ptr, color, C.int(from), C.int(to)) == 1
+	return C.backgammon_game_move(game.wrapper.ptr, color, Int(from), Int(to)) == 1
 }
 
 // CanBearOff reports whether the player `color` can bears off checkers
@@ -259,7 +261,7 @@ func (game *Game) EncodeMoves(color Color, moves []Move) []float64 {
 		game.wrapper.ptr,
 		color,
 		(*C.backgammon_move_t)(unsafe.Pointer(&moves[0])),
-		C.int(len(moves)),
+		Int(len(moves)),
 		(*C.double)(&vec[0]),
 	)
 	return vec
