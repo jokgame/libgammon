@@ -1,3 +1,3 @@
-module github.com/jokgame/backgammon/libgammon
+module github.com/jokgame/libgammon
 
 go 1.19
