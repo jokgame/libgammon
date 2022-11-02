@@ -47,6 +47,7 @@ const NUM_HOME_POSITIONS = C.BACKGAMMON_NUM_HOME_POSITIONS /* Home 区域位置�
 const BACKGAMMON_NUM_DICES = C.BACKGAMMON_NUM_DICES       /* 骰子数量 */
 const BACKGAMMON_NUM_CHECKERS = C.BACKGAMMON_NUM_CHECKERS /* 每一方的棋子个数 */
 
+// Color represents color of checker or player
 type Color = C.backgammon_color_t
 
 const (
@@ -55,6 +56,7 @@ const (
 	Black = C.BACKGAMMON_BLACK
 )
 
+// Error wrapps C error code
 type Error C.backgammon_error_t
 
 const (
@@ -67,6 +69,7 @@ const (
 	ErrMoveCannotBearOff   = Error(C.BACKGAMMON_ERR_MOVE_CANNOT_BEAR_OFF)
 )
 
+// Error implements Error method
 func (err Error) Error() string {
 	switch err {
 	case ErrMoveToOrigin:
@@ -88,15 +91,18 @@ func (err Error) Error() string {
 	}
 }
 
+// Grids represents information for each position in board
 type Grid struct {
 	Color Color
 	Count C.int
 }
 
+// Move represents information for each movement of checker
 type Move struct {
 	From, Steps, To C.int
 }
 
+// Action represents a action tree from virtual root
 type Action struct {
 	Move     Move
 	Children *Action
@@ -120,6 +126,7 @@ func newAction(caction *C.backgammon_action_t) *Action {
 
 type Visitor func(path []*Action)
 
+// Visit visits all path from root to each leaf node
 func (action *Action) Visit(visitor Visitor) {
 	var path = make([]*Action, 0, 32)
 	path = append(path, action)
@@ -141,16 +148,19 @@ func (action *Action) Visit(visitor Visitor) {
 	}
 }
 
+// Game represents a backgammon game board
 type Game struct {
 	wrapper C.backgammon_game_wrapper_t
 }
 
+// NewGame creates a game board
 func NewGame() *Game {
 	game := &Game{}
 	game.wrapper.ptr = C.backgammon_game_new()
 	return game
 }
 
+// Close closes game board
 func (game *Game) Close() {
 	if game.wrapper.ptr != nil {
 		C.backgammon_game_free(game.wrapper.ptr)
@@ -158,6 +168,7 @@ func (game *Game) Close() {
 	}
 }
 
+// Reset resets game board
 func (game *Game) Reset(grids map[int]Grid) {
 	if grids != nil {
 		for i := 0; i < NUM_POSITIONS; i++ {
@@ -177,12 +188,14 @@ func (game *Game) Reset(grids map[int]Grid) {
 	}
 }
 
+// Clone clones game board
 func (game *Game) Clone() *Game {
 	newGame := &Game{}
 	newGame.wrapper.ptr = C.backgammon_game_clone(game.wrapper.ptr)
 	return newGame
 }
 
+// GetGrid retrives grid information
 func (game *Game) GetGrid(pos int) Grid {
 	cgrid := C.backgammon_game_get_grid(game.wrapper.ptr, C.int(pos))
 	return Grid{
@@ -191,6 +204,7 @@ func (game *Game) GetGrid(pos int) Grid {
 	}
 }
 
+// SetGrid updates grid information
 func (game *Game) SetGrid(pos int, grid Grid) {
 	var cgrid C.backgammon_grid_t
 	cgrid.color = grid.Color
@@ -198,6 +212,7 @@ func (game *Game) SetGrid(pos int, grid Grid) {
 	C.backgammon_game_set_grid(game.wrapper.ptr, C.int(pos), cgrid)
 }
 
+// GetActions gets all legal actions
 func (game *Game) GetActions(color Color, roll1, roll2 int) *Action {
 	caction := C.backgammon_game_get_actions(game.wrapper.ptr, color, C.int(roll1), C.int(roll2))
 	action := newAction(caction)
@@ -205,32 +220,39 @@ func (game *Game) GetActions(color Color, roll1, roll2 int) *Action {
 	return action
 }
 
+// CanMoveFrom reports whether the checker at `from` can be moved by steps `steps`
 func (game *Game) CanMoveFrom(color Color, from int, steps int) bool {
 	return C.backgammon_game_can_move_from(game.wrapper.ptr, color, C.int(from), C.int(steps)) == 1
 }
 
+// CanMove reports whether there is a checker which can be moved by steps `steps`
 func (game *Game) CanMove(color Color, steps int) bool {
 	return C.backgammon_game_can_move(game.wrapper.ptr, color, C.int(steps)) == 1
 }
 
+// Move moves the checker at `from` to `to`
 func (game *Game) Move(color Color, from, to int) bool {
 	return C.backgammon_game_move(game.wrapper.ptr, color, C.int(from), C.int(to)) == 1
 }
 
+// CanBearOff reports whether the player `color` can bears off checkers
 func (game *Game) CanBearOff(color Color) bool {
 	return C.backgammon_game_can_bear_off(game.wrapper.ptr, color) == 1
 }
 
+// Winner retrives winner of game or no winner if game isn't over
 func (game *Game) Winner() Color {
 	return C.backgammon_game_winner(game.wrapper.ptr)
 }
 
+// Encode encodes game board for player `color` as a TDGammon features
 func (game *Game) Encode(color Color) []float64 {
 	var vec = make([]float64, 198)
 	C.backgammon_game_encode(game.wrapper.ptr, color, (*C.double)(&vec[0]))
 	return vec
 }
 
+// Encode encodes game board for player `color` after doing moves as a TDGammon features
 func (game *Game) EncodeMoves(color Color, moves []Move) []float64 {
 	var vec = make([]float64, 198)
 	C.backgammon_game_encode_moves(
@@ -243,6 +265,7 @@ func (game *Game) EncodeMoves(color Color, moves []Move) []float64 {
 	return vec
 }
 
+// ReverseFeatures reverses the features
 func (game *Game) ReverseFeatures(vec []float64) {
 	C.backgammon_game_reverse_features((*C.double)(&vec[0]))
 }
