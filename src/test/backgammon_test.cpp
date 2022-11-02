@@ -34,7 +34,7 @@
 
 #include "../backgammon/backgammon.h"
 
-static void usage(const char *name) { printf("Usage: %s <onnx model filename> [N]\n", name); }
+static void usage(const char *name) { printf("Usage: %s <onnx1> [onnx2] [N]\n", name); }
 
 static void print_actions(FILE *out, backgammon_action_t *tree) {
     const backgammon_action_t *path[32];
@@ -164,13 +164,16 @@ int main(int argc, char **argv) {
         usage(argv[0]);
         return 1;
     }
-    const char *filename = argv[1];
-    const int N = argc == 3 ? std::max(atoi(argv[2]), 1) : 100;
+    const char *filename1 = argv[1];
+    const char *filename2 = argc > 2 ? argv[2] : filename1;
+    const int N = argc > 3 ? std::max(atoi(argv[3]), 1) : 100;
 
     /* load TD-Gammon onnx */
-    std::shared_ptr<TDGammonModel> model;
+    std::shared_ptr<TDGammonModel> model1;
+    std::shared_ptr<TDGammonModel> model2;
     try {
-        model = std::make_shared<TDGammonModel>(filename);
+        model1 = std::make_shared<TDGammonModel>(filename1);
+        model2 = std::make_shared<TDGammonModel>(filename2);
     } catch (const Ort::Exception &exception) {
         printf("Error: %s\n", exception.what());
         return 1;
@@ -179,29 +182,35 @@ int main(int argc, char **argv) {
     /* play games */
     int white_wins = 0;
     VisitorContext context;
-    context.model = model;
     for (int i = 0; i < N; ++i) {
         if (context.game) {
             backgammon_game_free(context.game);
         }
         backgammon_game_t *game = backgammon_game_new();
         context.game = game;
-        backgammon_color_t turn = rand() % 2 == 0 ? BACKGAMMON_WHITE : BACKGAMMON_BLACK;
         int roll[2];
-        int steps = 0;
+        do {
+            roll[0] = rand() % 6 + 1;
+            roll[1] = rand() % 6 + 1;
+        } while (roll[0] == roll[1]);
+        backgammon_color_t turn = roll[0] > roll[1] ? BACKGAMMON_WHITE : BACKGAMMON_BLACK;
+        int rounds = 0;
         while (backgammon_game_winner(game) == BACKGAMMON_NOCOLOR) {
-            ++steps;
+            ++rounds;
             context.reset(turn);
+            context.model = turn == BACKGAMMON_WHITE ? model1 : model2;
             if (verbose > 0) {
-                fprintf(stderr, "---------------- STEPS %d ----------------\n", steps);
+                fprintf(stderr, "---------------- ROUNDS %d ----------------\n", rounds);
             }
             const char *player = turn == BACKGAMMON_WHITE ? "(W)" : "(B)";
 
             /* roll */
-            roll[0] = rand() % 6 + 1;
-            roll[1] = rand() % 6 + 1;
+            if (rounds > 1) {
+                roll[0] = rand() % 6 + 1;
+                roll[1] = rand() % 6 + 1;
+            }
             if (verbose > 0) {
-                std::cout << "step " << steps << " " << player << ": roll=(" << roll[0] << roll[1]
+                std::cout << "ROUND " << rounds << " " << player << ": roll=(" << roll[0] << roll[1]
                           << ")" << std::endl;
             }
 
@@ -273,7 +282,7 @@ int main(int argc, char **argv) {
 
             if (context.best_action.empty()) {
                 if (verbose > 0) {
-                    std::cout << "step " << steps << " " << player << ": no avaiable actions"
+                    std::cout << "ROUND " << rounds << " " << player << ": no avaiable actions"
                               << std::endl;
                 }
             } else {
@@ -282,7 +291,7 @@ int main(int argc, char **argv) {
                     backgammon_game_move(game, turn, move.from, move.to);
                 }
                 if (verbose > 0) {
-                    std::cout << "step " << steps << " " << player << ":"
+                    std::cout << "ROUNDS " << rounds << " " << player << ":"
                               << " action=";
                     for (const auto &move : context.best_action) {
                         std::cout << "(" << move.from << "->" << move.to << ")";
@@ -297,8 +306,8 @@ int main(int argc, char **argv) {
 
         /* print game result */
         int winner = backgammon_game_winner(game);
-        printf("game %d: winner=%s, steps=%d\n", i + 1,
-               winner == BACKGAMMON_WHITE ? "WHITE" : "BLACK", steps);
+        printf("game %d: winner=%s, rounds=%d\n", i + 1,
+               winner == BACKGAMMON_WHITE ? "WHITE" : "BLACK", rounds);
         if (winner == BACKGAMMON_WHITE) {
             white_wins++;
         }

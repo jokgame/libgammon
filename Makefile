@@ -28,7 +28,7 @@ endif
 
 .PHONY: pybind
 py:
-	python3 setup.py install
+	pip3 install -e .
 
 .PHONY: test
 test: build

@@ -147,6 +147,16 @@ BACKGAMMON_API
 backgammon_grid_t backgammon_game_get_grid(const struct backgammon_game_t *game, int pos);
 
 /**
+ * @brief 设置指定位置处格子信息
+ *
+ * @param game 当前游戏状态
+ * @param pos 指定位置
+ * @param grid 格子数据
+ */
+BACKGAMMON_API
+void backgammon_game_set_grid(struct backgammon_game_t *game, int pos, backgammon_grid_t grid);
+
+/**
  * @brief 获取所有合法的动作
  *
  * @param game 当前游戏状态

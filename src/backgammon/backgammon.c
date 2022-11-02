@@ -165,6 +165,10 @@ backgammon_grid_t backgammon_game_get_grid(const backgammon_game_t *game, int po
     return game->board[pos];
 }
 
+void backgammon_game_set_grid(struct backgammon_game_t *game, int pos, backgammon_grid_t grid) {
+    game->board[pos] = grid;
+}
+
 backgammon_action_t *backgammon_game_get_actions(const backgammon_game_t *game,
                                                  backgammon_color_t color, int roll1, int roll2) {
     backgammon_action_t *root = (backgammon_action_t *)malloc(sizeof(backgammon_action_t));
@@ -367,7 +371,7 @@ int backgammon_game_encode(const backgammon_game_t *game, backgammon_color_t col
             }
         }
         vec[offset++] = (double)(game->board[backgammon_get_bar_pos(colors[i])].count) / 2.0;
-        vec[offset++] = (double)(game->board[backgammon_get_off_pos(colors[i])].count) / 2.0;
+        vec[offset++] = (double)(game->board[backgammon_get_off_pos(colors[i])].count) / 15.0;
     }
     if (color == BACKGAMMON_WHITE) {
         vec[offset++] = 1.0;

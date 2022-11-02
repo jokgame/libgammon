@@ -49,6 +49,7 @@ class Action {
 class Game {
   public:
     Game() { m_game = backgammon_game_new(); }
+    Game(backgammon_game_t *game) { m_game = game; }
     ~Game() {
         if (m_game != nullptr) {
             backgammon_game_free(m_game);
@@ -64,7 +65,10 @@ class Game {
     }
 
     std::vector<Action> get_actions(backgammon_color_t color, const std::vector<int> &roll) const {
-        backgammon_action_t *root = backgammon_game_get_actions(m_game, color, roll.data());
+        if (roll.size() != 2) {
+            throw std::length_error("expected two roll");
+        }
+        backgammon_action_t *root = backgammon_game_get_actions(m_game, color, roll[0], roll[1]);
         if (root->children == nullptr) {
             return {};
         }
@@ -135,6 +139,35 @@ class Game {
 
     backgammon_color_t winner() { return backgammon_game_winner(m_game); }
 
+    backgammon_color_t get_opponent(backgammon_color_t color) {
+        switch (color) {
+        case backgammon_color_t::BACKGAMMON_WHITE:
+            return backgammon_color_t::BACKGAMMON_BLACK;
+        case backgammon_color_t::BACKGAMMON_BLACK:
+            return backgammon_color_t::BACKGAMMON_WHITE;
+        default:
+            return backgammon_color_t::BACKGAMMON_NOCOLOR;
+        }
+    }
+
+    std::map<int, Grid> save_state() {
+        std::map<int, Grid> state;
+        for (int pos = 0; pos < BACKGAMMON_NUM_POSITIONS; ++pos) {
+            state[pos] = grid(pos);
+        }
+        return state;
+    }
+
+    void restore_state(const std::map<int, Grid> &state) {
+        reset();
+        for (const auto &kv : state) {
+            backgammon_grid_t grid;
+            grid.color = kv.second.color();
+            grid.count = kv.second.count();
+            backgammon_game_set_grid(m_game, kv.first, grid);
+        }
+    }
+
   private:
     struct backgammon_game_t *m_game{nullptr};
 };
@@ -188,5 +221,8 @@ PYBIND11_MODULE(_libgammon, mod) {
         .def("can_move", &Game::can_move)
         .def("move", &Game::move)
         .def("can_bear_off", &Game::can_bear_off)
-        .def("winner", &Game::winner);
+        .def("winner", &Game::winner)
+        .def("get_opponent", &Game::get_opponent)
+        .def("save_state", &Game::save_state)
+        .def("restore_state", &Game::restore_state);
 }
