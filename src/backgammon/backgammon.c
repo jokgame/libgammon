@@ -298,6 +298,9 @@ int backgammon_game_can_move(const backgammon_game_t *game, backgammon_color_t c
             return 1;
         }
     }
+    if (backgammon_game_can_move_from(game, color, backgammon_get_bar_pos(color), steps) >= 0) {
+        return 1;
+    }
     return 0;
 }
 
