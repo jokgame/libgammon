@@ -26,7 +26,7 @@ ifndef ANDROID_TOOLCHAIN_CMAKE
 	$(error ANDROID_TOOLCHAIN_CMAKE is undefined)
 endif
 
-.PHONY: pybind
+.PHONY: py
 py:
 	pip3 install -e .
 
