@@ -87,7 +87,7 @@ class Env(gym.Env):
         reward = 0.0
         terminated = False
         truncated = False
-        winner = self.game.winner()
+        winner = self.game.result().winner
         if winner != Color.NOCOLOR or self.rounds > self.max_rounds:
             if winner == Color.WHITE:
                 reward = 1.0

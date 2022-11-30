@@ -36,6 +36,23 @@ typedef enum backgammon_color_t {
 } backgammon_color_t;
 
 /**
+ * @brief 获胜方式
+ */
+typedef enum backgammon_win_kind_t {
+    BACKGAMMON_WIN_NORMAL = 0,
+    BACKGAMMON_WIN_GAMMON = 1,
+    BACKGAMMON_WIN_BACKGAMMON = 2,
+} backgammon_win_kind_t;
+
+/**
+ * @brief 游戏结果
+ */
+typedef struct backgammon_result_t {
+    backgammon_color_t winner;
+    backgammon_win_kind_t kind;
+} backgammon_result_t;
+
+/**
  * @brief 错误码
  */
 typedef enum backgammon_error_t {
@@ -246,13 +263,13 @@ BACKGAMMON_API
 int backgammon_game_can_bear_off(const struct backgammon_game_t *game, backgammon_color_t color);
 
 /**
- * @brief 返回游戏结束后的胜利方颜色，如果游戏没有结束则返回 BACKGAMMON_NOCOLOR
+ * @brief 返回游戏结果，如果游戏没有结束则 result.winner == BACKGAMMON_NOCOLOR
  *
  * @param game 当前游戏状态
  * @return backgammon_color_t
  */
 BACKGAMMON_API
-backgammon_color_t backgammon_game_winner(const struct backgammon_game_t *game);
+backgammon_result_t backgammon_game_result(const struct backgammon_game_t *game);
 
 /**
  * @brief 按 TD-Gammon 算法编码棋盘状态

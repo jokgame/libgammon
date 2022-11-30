@@ -7,6 +7,11 @@
 
 #include "../src/backgammon/backgammon.h"
 
+struct Result {
+    backgammon_color_t winner;
+    backgammon_win_kind_t kind;
+};
+
 class Grid {
   public:
     Grid() {
@@ -137,7 +142,7 @@ class Game {
         return backgammon_game_can_bear_off(m_game, color);
     }
 
-    backgammon_color_t winner() { return backgammon_game_winner(m_game); }
+    backgammon_result_t result() { return backgammon_game_result(m_game); }
 
     backgammon_color_t get_opponent(backgammon_color_t color) {
         switch (color) {
@@ -193,6 +198,12 @@ PYBIND11_MODULE(_libgammon, mod) {
         .value("BLACK", backgammon_color_t::BACKGAMMON_BLACK)
         .export_values();
 
+    py::enum_<backgammon_win_kind_t>(mod, "WinKind")
+        .value("NORMAL", backgammon_win_kind_t::BACKGAMMON_WIN_NORMAL)
+        .value("GAMMON", backgammon_win_kind_t::BACKGAMMON_WIN_GAMMON)
+        .value("BACKGAMMON", backgammon_win_kind_t::BACKGAMMON_WIN_BACKGAMMON)
+        .export_values();
+
     py::class_<Grid>(mod, "Grid")
         .def(py::init<>())
         .def(py::init<backgammon_color_t, int>())
@@ -221,7 +232,7 @@ PYBIND11_MODULE(_libgammon, mod) {
         .def("can_move", &Game::can_move)
         .def("move", &Game::move)
         .def("can_bear_off", &Game::can_bear_off)
-        .def("winner", &Game::winner)
+        .def("result", &Game::result)
         .def("get_opponent", &Game::get_opponent)
         .def("save_state", &Game::save_state)
         .def("restore_state", &Game::restore_state);

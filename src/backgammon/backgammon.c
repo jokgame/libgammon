@@ -346,14 +346,34 @@ int backgammon_game_can_bear_off(const backgammon_game_t *game, backgammon_color
     return 1;
 }
 
-backgammon_color_t backgammon_game_winner(const backgammon_game_t *game) {
+backgammon_result_t backgammon_game_result(const backgammon_game_t *game) {
+    backgammon_result_t result;
+    result.winner = BACKGAMMON_NOCOLOR;
+    result.kind = BACKGAMMON_WIN_NORMAL;
     if (game->board[BACKGAMMON_WHITE_OFF_POS].count == BACKGAMMON_NUM_CHECKERS) {
-        return BACKGAMMON_WHITE;
+        result.winner = BACKGAMMON_WHITE;
+        for (int i = 0; i <= 6; i++) {
+            if (game->board[i].count > 0 && game->board[i].color == BACKGAMMON_BLACK) {
+                result.kind = BACKGAMMON_WIN_BACKGAMMON;
+                return result;
+            }
+        }
+        if (game->board[BACKGAMMON_BLACK_OFF_POS].count == 0) {
+            result.kind = BACKGAMMON_WIN_GAMMON;
+        }
+    } else if (game->board[BACKGAMMON_BLACK_OFF_POS].count == BACKGAMMON_NUM_CHECKERS) {
+        result.winner = BACKGAMMON_BLACK;
+        for (int i = 19; i <= 25; i++) {
+            if (game->board[i].count > 0 && game->board[i].color == BACKGAMMON_WHITE) {
+                result.kind = BACKGAMMON_WIN_BACKGAMMON;
+                return result;
+            }
+        }
+        if (game->board[BACKGAMMON_WHITE_OFF_POS].count == 0) {
+            result.kind = BACKGAMMON_WIN_GAMMON;
+        }
     }
-    if (game->board[BACKGAMMON_BLACK_OFF_POS].count == BACKGAMMON_NUM_CHECKERS) {
-        return BACKGAMMON_BLACK;
-    }
-    return BACKGAMMON_NOCOLOR;
+    return result;
 }
 
 int backgammon_game_encode(const backgammon_game_t *game, backgammon_color_t color, double *vec) {

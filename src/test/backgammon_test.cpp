@@ -195,7 +195,7 @@ int main(int argc, char **argv) {
         } while (roll[0] == roll[1]);
         backgammon_color_t turn = roll[0] > roll[1] ? BACKGAMMON_WHITE : BACKGAMMON_BLACK;
         int rounds = 0;
-        while (backgammon_game_winner(game) == BACKGAMMON_NOCOLOR) {
+        while (backgammon_game_result(game).winner == BACKGAMMON_NOCOLOR) {
             ++rounds;
             context.reset(turn);
             context.model = turn == BACKGAMMON_WHITE ? model1 : model2;
@@ -305,7 +305,7 @@ int main(int argc, char **argv) {
         }
 
         /* print game result */
-        int winner = backgammon_game_winner(game);
+        int winner = backgammon_game_result(game).winner;
         printf("game %d: winner=%s, rounds=%d\n", i + 1,
                winner == BACKGAMMON_WHITE ? "WHITE" : "BLACK", rounds);
         if (winner == BACKGAMMON_WHITE) {

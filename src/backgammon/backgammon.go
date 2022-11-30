@@ -93,6 +93,19 @@ func (err Error) Error() string {
 	}
 }
 
+type WinKind C.backgammon_win_kind_t
+
+const (
+	WinNormal     WinKind = WinKind(C.BACKGAMMON_WIN_NORMAL)
+	WinGammon     WinKind = WinKind(C.BACKGAMMON_WIN_GAMMON)
+	WinBackgammon WinKind = WinKind(C.BACKGAMMON_WIN_BACKGAMMON)
+)
+
+type Result struct {
+	Winner  Color
+	WinKind WinKind
+}
+
 // Grids represents information for each position in board
 type Grid struct {
 	Color Color
@@ -242,9 +255,13 @@ func (game *Game) CanBearOff(color Color) bool {
 	return C.backgammon_game_can_bear_off(game.wrapper.ptr, color) == 1
 }
 
-// Winner retrives winner of game or no winner if game isn't over
-func (game *Game) Winner() Color {
-	return C.backgammon_game_winner(game.wrapper.ptr)
+// Result retrives result of game
+func (game *Game) Result() Result {
+	var result = C.backgammon_game_result(game.wrapper.ptr)
+	return Result{
+		Winner:  Color(result.winner),
+		WinKind: WinKind(result.kind),
+	}
 }
 
 // Encode encodes game board for player `color` as a TDGammon features

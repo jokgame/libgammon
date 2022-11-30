@@ -18,9 +18,11 @@ else()
 	aux_source_directory(./src/backgammon src_libgammon)
 	add_library(gammon_static STATIC ${src_libgammon})
 	set_target_properties(gammon_static PROPERTIES OUTPUT_NAME gammon)
-	# build shared lib for android and windows
-	add_library(gammon_shared SHARED ${src_libgammon})
-	set_target_properties(gammon_shared PROPERTIES OUTPUT_NAME gammon)
+	if (NOT ${CMAKE_SYSTEM_NAME} MATCHES "iOS")
+		# build shared lib
+		add_library(gammon_shared SHARED ${src_libgammon})
+		set_target_properties(gammon_shared PROPERTIES OUTPUT_NAME gammon)
+	endif()
 	# build gammon_test
 	if (backgammon_BUILD_TEST)
 		aux_source_directory(./src/test src_test)
