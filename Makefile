@@ -32,6 +32,7 @@ py:
 
 .PHONY: test
 test: build
+	codesign -s - -f --entitlements codesign.entitlements ./build/default/bin/gammon_test >/dev/null
 	./build/default/bin/gammon_test ./data/tdgammon.onnx
 
 .PHONY: clean

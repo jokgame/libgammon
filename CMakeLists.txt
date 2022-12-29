@@ -6,6 +6,8 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_CXX_FLAGS "-std=c++17 ${CMAKE_CXX_FLAGS}")
 set(CMAKE_C_FLAGS "-std=c17 ${CMAKE_C_FLAGS}")
 
+set(CMAKE_CXX_FLAGS "-fno-limit-debug-info -g3 ${CMAKE_CXX_FLAGS}")
+
 option(backgammon_BUILD_PYTHON "build python." OFF)
 option(backgammon_BUILD_TEST "build test." OFF)
 

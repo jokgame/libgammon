@@ -1,5 +1,7 @@
 #include <exception>
+#include <iostream>
 #include <map>
+#include <sstream>
 #include <vector>
 
 #include "../third_party/pybind11/include/pybind11/pybind11.h"
@@ -7,12 +9,54 @@
 
 #include "../src/backgammon/backgammon.h"
 
-struct Result {
-    backgammon_color_t winner;
-    backgammon_win_kind_t kind;
+static std::string color_to_string(backgammon_color_t color) {
+    switch (color) {
+    case BACKGAMMON_WHITE:
+        return "WHITE";
+    case BACKGAMMON_BLACK:
+        return "BLACK";
+    default:
+        return "NONE";
+    }
+}
+
+static std::string win_kind_to_string(backgammon_win_kind_t kind) {
+    switch (kind) {
+    case BACKGAMMON_WIN_NORMAL:
+        return "NORMAL";
+    case BACKGAMMON_WIN_GAMMON:
+        return "GAMMON";
+    case BACKGAMMON_WIN_BACKGAMMON:
+        return "BACKGAMMON";
+    default:
+        return "NONE";
+    }
+}
+
+class Stringer {
+  public:
+    virtual std::ostream &marshal(std::ostream &os) const = 0;
+
+    std::string to_string() const {
+        std::stringstream ss;
+        marshal(ss);
+        return ss.str();
+    }
 };
 
-class Grid {
+class Result : public Stringer {
+  public:
+    backgammon_color_t winner;
+    backgammon_win_kind_t kind;
+
+    std::ostream &marshal(std::ostream &os) const override {
+        os << "{winner=" << color_to_string(winner);
+        os << ",kind=" << win_kind_to_string(kind) << "}";
+        return os;
+    }
+};
+
+class Grid : public Stringer {
   public:
     Grid() {
         m_grid.color = backgammon_color_t::BACKGAMMON_NOCOLOR;
@@ -28,17 +72,32 @@ class Grid {
     void set_color(backgammon_color_t color) { m_grid.color = color; }
     void set_count(int count) { m_grid.count = count; }
 
+    std::ostream &marshal(std::ostream &os) const override {
+        if (m_grid.count == 0) {
+            os << "{}";
+            return os;
+        }
+        os << "{color=" << color_to_string(m_grid.color);
+        os << ",count=" << m_grid.count << "}";
+        return os;
+    }
+
   private:
     backgammon_grid_t m_grid;
 };
 
-struct Move {
+class Move : public Stringer {
+  public:
     int pos{0};
     int steps{0};
     int to{0};
+
+    std::ostream &marshal(std::ostream &os) const override {
+        return os << "{pos=" << pos << ",steps=" << steps << ",to=" << to << "}";
+    }
 };
 
-class Action {
+class Action : public Stringer {
   public:
     Action() {}
     Action(const std::vector<Move> &moves) : m_moves(moves) {}
@@ -47,11 +106,19 @@ class Action {
     int num_move() const { return m_moves.size(); }
     Move get_move(int i) const { return m_moves[i]; }
 
+    std::ostream &marshal(std::ostream &os) const override {
+        os << '[';
+        for (size_t i = 0; i < m_moves.size(); i++) {
+            m_moves[i].marshal(os);
+        }
+        return os << ']';
+    }
+
   private:
     std::vector<Move> m_moves;
 };
 
-class Game {
+class Game : public Stringer {
   public:
     Game() { m_game = backgammon_game_new(); }
     Game(backgammon_game_t *game) { m_game = game; }
@@ -64,14 +131,14 @@ class Game {
 
     void reset() { backgammon_game_reset(m_game); }
 
-    Grid grid(int pos) {
+    Grid grid(int pos) const {
         backgammon_grid_t grid = backgammon_game_get_grid(m_game, pos);
         return Grid(grid.color, grid.count);
     }
 
     std::vector<Action> get_actions(backgammon_color_t color, const std::vector<int> &roll) const {
         if (roll.size() != 2) {
-            throw std::length_error("expected two roll");
+            throw std::length_error("expected two dices, but got " + std::to_string(roll.size()));
         }
         backgammon_action_t *root = backgammon_game_get_actions(m_game, color, roll[0], roll[1]);
         if (root->children == nullptr) {
@@ -95,6 +162,7 @@ class Game {
                     moves[i].to = path[i]->to;
                 }
                 context->actions.push_back(Action(moves));
+                std::cout << "  push action: " << context->actions.back().to_string() << std::endl;
             },
             &context);
         backgammon_action_free(root);
@@ -102,27 +170,24 @@ class Game {
     }
 
     std::vector<double> encode(backgammon_color_t color) const {
-        std::vector<double> vec(198);
+        std::vector<double> vec(BACKGAMMON_NUM_FEATURES);
         backgammon_game_encode(m_game, color, vec.data());
         return vec;
     }
 
     std::vector<double> encode_action(backgammon_color_t color, const Action &action) const {
         const int n = action.num_move();
-        std::vector<double> vec(198);
-        const backgammon_action_t *path[n];
+        backgammon_move_t moves[n];
         for (int i = 0; i < n; ++i) {
             const auto &m = action.get_move(i);
-            backgammon_action_t *a = (backgammon_action_t *)malloc(sizeof(backgammon_action_t));
-            a->from = m.to;
-            a->steps = m.steps;
-            a->to = m.to;
-            path[i] = a;
+            backgammon_move_t a;
+            a.from = m.to;
+            a.steps = m.steps;
+            a.to = m.to;
+            moves[i] = a;
         }
-        backgammon_game_encode_action(m_game, color, path, n, vec.data());
-        for (int i = 0; i < n; ++i) {
-            free(const_cast<backgammon_action_t *>(path[i]));
-        }
+        std::vector<double> vec(BACKGAMMON_NUM_FEATURES);
+        backgammon_game_encode_moves(m_game, color, moves, n, vec.data());
         return vec;
     }
 
@@ -138,13 +203,19 @@ class Game {
         return backgammon_game_move(m_game, color, pos, to);
     }
 
-    bool can_bear_off(backgammon_color_t color) {
+    bool can_bear_off(backgammon_color_t color) const {
         return backgammon_game_can_bear_off(m_game, color);
     }
 
-    backgammon_result_t result() { return backgammon_game_result(m_game); }
+    Result result() const {
+        backgammon_result_t x = backgammon_game_result(m_game);
+        Result result;
+        result.kind = x.kind;
+        result.winner = x.winner;
+        return result;
+    }
 
-    backgammon_color_t get_opponent(backgammon_color_t color) {
+    backgammon_color_t get_opponent(backgammon_color_t color) const {
         switch (color) {
         case backgammon_color_t::BACKGAMMON_WHITE:
             return backgammon_color_t::BACKGAMMON_BLACK;
@@ -155,7 +226,7 @@ class Game {
         }
     }
 
-    std::map<int, Grid> save_state() {
+    std::map<int, Grid> save_state() const {
         std::map<int, Grid> state;
         for (int pos = 0; pos < BACKGAMMON_NUM_POSITIONS; ++pos) {
             state[pos] = grid(pos);
@@ -164,13 +235,23 @@ class Game {
     }
 
     void restore_state(const std::map<int, Grid> &state) {
-        reset();
+        backgammon_grid_t empty;
+        memset(&empty, 0, sizeof(backgammon_grid_t));
+        for (int pos = 0; pos < BACKGAMMON_NUM_POSITIONS; ++pos) {
+            backgammon_game_set_grid(m_game, pos, empty);
+        }
         for (const auto &kv : state) {
             backgammon_grid_t grid;
             grid.color = kv.second.color();
             grid.count = kv.second.count();
             backgammon_game_set_grid(m_game, kv.first, grid);
         }
+    }
+
+    std::ostream &marshal(std::ostream &os) const override {
+        char buf[128];
+        int n = backgammon_game_to_string(buf, m_game);
+        return os << std::string(buf, buf + n);
     }
 
   private:
@@ -204,22 +285,30 @@ PYBIND11_MODULE(_libgammon, mod) {
         .value("BACKGAMMON", backgammon_win_kind_t::BACKGAMMON_WIN_BACKGAMMON)
         .export_values();
 
+    py::class_<Result>(mod, "Result")
+        .def_readwrite("kind", &Result::kind)
+        .def_readwrite("winner", &Result::winner)
+        .def("__repr__", &Result::to_string);
+
     py::class_<Grid>(mod, "Grid")
         .def(py::init<>())
         .def(py::init<backgammon_color_t, int>())
         .def_property("color", &Grid::color, &Grid::set_color)
-        .def_property("count", &Grid::count, &Grid::set_count);
+        .def_property("count", &Grid::count, &Grid::set_count)
+        .def("__repr__", &Grid::to_string);
 
     py::class_<Move>(mod, "Move")
         .def_readwrite("pos", &Move::pos)
         .def_readwrite("steps", &Move::steps)
-        .def_readwrite("to", &Move::to);
+        .def_readwrite("to", &Move::to)
+        .def("__repr__", &Move::to_string);
 
     py::class_<Action>(mod, "Action")
         .def(py::init<>())
         .def(py::init<const std::vector<Move> &>())
         .def("num_move", &Action::num_move)
-        .def("get_move", &Action::get_move);
+        .def("get_move", &Action::get_move)
+        .def("__repr__", &Action::to_string);
 
     py::class_<Game>(mod, "Game")
         .def(py::init<>())
@@ -235,5 +324,6 @@ PYBIND11_MODULE(_libgammon, mod) {
         .def("result", &Game::result)
         .def("get_opponent", &Game::get_opponent)
         .def("save_state", &Game::save_state)
-        .def("restore_state", &Game::restore_state);
+        .def("restore_state", &Game::restore_state)
+        .def("__repr__", &Game::to_string);
 }

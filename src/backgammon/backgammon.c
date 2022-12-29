@@ -107,6 +107,145 @@ void backgammon_game_free(backgammon_game_t *game) {
     }
 }
 
+backgammon_grid_t backgammon_game_get_grid(const backgammon_game_t *game, int pos) {
+    assert(pos >= 0 && pos < BACKGAMMON_NUM_POSITIONS);
+    return game->board[pos];
+}
+
+void backgammon_game_set_grid(struct backgammon_game_t *game, int pos, backgammon_grid_t grid) {
+    game->board[pos] = grid;
+}
+
+typedef struct backgamme_game_key_t {
+    uint64_t first;
+    uint64_t second;
+} backgammon_game_key_t;
+
+static uint64_t backgammon_game_key_hash(backgammon_game_key_t key) {
+    return key.first ^ (key.second << 1);
+}
+
+static void set_game_key_bit(backgammon_game_key_t *key, int offset, int value) {
+    uint64_t *data;
+    if (offset < 64) {
+        data = &(key->first);
+    } else {
+        offset -= 64;
+        data = &(key->second);
+    }
+    uint64_t mask = value ? 1 << offset : ~(1 << offset);
+    if (value == 1) {
+        *data = (*data) | mask;
+    } else {
+        *data = (*data) & mask;
+    }
+}
+
+static int backgammon_is_same_key(backgammon_game_key_t key1, backgammon_game_key_t key2) {
+    return key1.first == key2.first && key1.second == key2.second ? 1 : 0;
+}
+
+backgammon_game_key_t backgammon_game_key(const backgammon_game_t *game) {
+    backgammon_game_key_t key;
+    memset(&key, 0, sizeof(key));
+    int offset = 0;
+    for (int pos = 0; pos < BACKGAMMON_NUM_POSITIONS; pos++) {
+        backgammon_grid_t grid = backgammon_game_get_grid(game, pos);
+        if (pos >= BACKGAMMON_BOARD_MIN_POS && pos <= BACKGAMMON_BOARD_MAX_POS) {
+            // marshal color using 1 bit
+            set_game_key_bit(&key, offset, grid.color == BACKGAMMON_WHITE);
+            offset++;
+        }
+        // marshal count (0~15) using 4 bits
+        for (int b = 0; b < 4; b++) {
+            set_game_key_bit(&key, offset, ((grid.count > b) & 0x1) == 0);
+            offset++;
+        }
+    }
+    return key;
+}
+
+typedef struct backgammon_linked_list_t {
+    backgammon_game_key_t key;
+    void *value;
+    struct backgammon_linked_list_t *next;
+} backgammon_linked_list_t;
+
+static void backgammon_linked_list_free(backgammon_linked_list_t *list) {
+    if (list == NULL) {
+        return;
+    }
+    backgammon_linked_list_free(list->next);
+    free(list);
+}
+
+typedef struct backgammon_hash_map_t {
+    backgammon_linked_list_t **buckets;
+    size_t num_buckets;
+} backgammon_hash_map_t;
+
+static size_t upper_power_2(size_t v) {
+    if (v == 0) {
+        return v;
+    }
+    assert(v > 0);
+    v--;
+    v |= v >> 1;
+    v |= v >> 2;
+    v |= v >> 4;
+    v |= v >> 8;
+    v |= v >> 16;
+    v++;
+    assert((v & (v - 1)) == 0);
+    return v;
+}
+
+static void backgammon_hash_map_init(backgammon_hash_map_t *map, size_t hint) {
+    map->num_buckets = upper_power_2(hint);
+    if (map->num_buckets == 0) {
+        map->num_buckets = 128;
+    }
+    size_t space = sizeof(backgammon_linked_list_t *) * map->num_buckets;
+    map->buckets = (backgammon_linked_list_t **)malloc(space);
+    memset(map->buckets, 0, space);
+}
+
+static void backgammon_hash_map_free(backgammon_hash_map_t *map) {
+    for (size_t i = 0; i < map->num_buckets; i++) {
+        backgammon_linked_list_free(map->buckets[i]);
+    }
+    free(map->buckets);
+}
+
+static void backgammon_hash_map_set(backgammon_hash_map_t *map, backgammon_game_key_t key,
+                                    void *value) {
+    uint64_t hash = backgammon_game_key_hash(key);
+    size_t index = hash & (uint64_t)(map->num_buckets - 1);
+    backgammon_linked_list_t *node = map->buckets[index];
+    if (node == NULL) {
+        node = (backgammon_linked_list_t *)malloc(sizeof(backgammon_linked_list_t));
+        memset(node, 0, sizeof(backgammon_linked_list_t));
+        node->key = key;
+        node->value = value;
+        map->buckets[index] = node;
+        return;
+    }
+    while (1) {
+        if (backgammon_is_same_key(node->key, key)) {
+            node->value = value;
+            return;
+        }
+        if (node->next == NULL) {
+            break;
+        }
+        node = node->next;
+    }
+    node->next = (backgammon_linked_list_t *)malloc(sizeof(backgammon_linked_list_t));
+    memset(node->next, 0, sizeof(backgammon_linked_list_t));
+    node->next->key = key;
+    node->next->value = value;
+}
+
 static backgammon_action_t *backgammon_append_move(backgammon_action_t *parent, int from, int steps,
                                                    int to) {
     backgammon_action_t *dst;
@@ -123,18 +262,20 @@ static backgammon_action_t *backgammon_append_move(backgammon_action_t *parent, 
         memset(dst->sibling, 0, sizeof(backgammon_action_t));
         dst = dst->sibling;
     }
-    dst->from = from;
-    dst->steps = steps;
-    dst->to = to;
+    dst->move.from = from;
+    dst->move.steps = steps;
+    dst->move.to = to;
+    dst->parent = parent;
     return dst;
 }
 
 static void backgammon_get_moves(const backgammon_game_t *game, backgammon_color_t color,
-                                 backgammon_action_t *parent, const int *roll, int num_roll);
+                                 backgammon_action_t *parent, const int *roll, int num_roll,
+                                 backgammon_hash_map_t *map);
 
-static void backgammon_try_get_moves(const backgammon_game_t *game, backgammon_color_t color,
-                                     backgammon_action_t *parent, const int *roll, int num_roll,
-                                     int from) {
+static void backgammon_try_get_moves_from(const backgammon_game_t *game, backgammon_color_t color,
+                                          backgammon_action_t *parent, const int *roll,
+                                          int num_roll, int from, backgammon_hash_map_t *map) {
     const int to = backgammon_game_can_move_from(game, color, from, roll[0]);
     if (to >= 0) {
         backgammon_game_t new_game;
@@ -142,47 +283,82 @@ static void backgammon_try_get_moves(const backgammon_game_t *game, backgammon_c
         backgammon_game_move(&new_game, color, from, to);
         backgammon_action_t *node = backgammon_append_move(parent, from, roll[0], to);
         if (num_roll > 1) {
-            backgammon_get_moves(&new_game, color, node, roll + 1, num_roll - 1);
+            backgammon_get_moves(&new_game, color, node, roll + 1, num_roll - 1, map);
+        }
+        if (node->children == NULL && map != NULL) {
+            backgammon_hash_map_set(map, backgammon_game_key(&new_game), node);
         }
     }
 }
 
 static void backgammon_get_moves(const backgammon_game_t *game, backgammon_color_t color,
-                                 backgammon_action_t *parent, const int *roll, int num_roll) {
+                                 backgammon_action_t *parent, const int *roll, int num_roll,
+                                 backgammon_hash_map_t *map) {
     const int bar_pos = backgammon_get_bar_pos(color);
     if (game->board[bar_pos].count > 0) {
         /* 需要先移动中间条上棋子 */
-        backgammon_try_get_moves(game, color, parent, roll, num_roll, bar_pos);
-        return;
+        backgammon_try_get_moves_from(game, color, parent, roll, num_roll, bar_pos, map);
+    } else {
+        for (int pos = BACKGAMMON_BOARD_MIN_POS; pos <= BACKGAMMON_BOARD_MAX_POS; ++pos) {
+            backgammon_try_get_moves_from(game, color, parent, roll, num_roll, pos, map);
+        }
     }
-    for (int pos = BACKGAMMON_BOARD_MIN_POS; pos <= BACKGAMMON_BOARD_MAX_POS; ++pos) {
-        backgammon_try_get_moves(game, color, parent, roll, num_roll, pos);
-    }
 }
 
-backgammon_grid_t backgammon_game_get_grid(const backgammon_game_t *game, int pos) {
-    assert(pos >= 0 && pos < BACKGAMMON_NUM_POSITIONS);
-    return game->board[pos];
-}
-
-void backgammon_game_set_grid(struct backgammon_game_t *game, int pos, backgammon_grid_t grid) {
-    game->board[pos] = grid;
-}
-
-backgammon_action_t *backgammon_game_get_actions(const backgammon_game_t *game,
-                                                 backgammon_color_t color, int roll1, int roll2) {
+static backgammon_action_t *backgammon_game_get_actions_with_map(const backgammon_game_t *game,
+                                                                 backgammon_color_t color,
+                                                                 int roll1, int roll2,
+                                                                 backgammon_hash_map_t *map) {
     backgammon_action_t *root = (backgammon_action_t *)malloc(sizeof(backgammon_action_t));
     memset(root, 0, sizeof(backgammon_action_t));
     if (roll1 == roll2) {
         int duproll[BACKGAMMON_NUM_DICES * 2] = {roll1, roll1, roll1, roll1};
-        backgammon_get_moves(game, color, root, duproll, BACKGAMMON_NUM_DICES * 2);
+        backgammon_get_moves(game, color, root, duproll, BACKGAMMON_NUM_DICES * 2, map);
     } else {
         int roll[BACKGAMMON_NUM_DICES] = {roll1, roll2};
         int revroll[BACKGAMMON_NUM_DICES] = {roll2, roll1};
-        backgammon_get_moves(game, color, root, roll, BACKGAMMON_NUM_DICES);
-        backgammon_get_moves(game, color, root, revroll, BACKGAMMON_NUM_DICES);
+        backgammon_get_moves(game, color, root, roll, BACKGAMMON_NUM_DICES, map);
+        backgammon_get_moves(game, color, root, revroll, BACKGAMMON_NUM_DICES, map);
     }
     return root;
+}
+
+backgammon_action_t *backgammon_game_get_actions(const backgammon_game_t *game,
+                                                 backgammon_color_t color, int roll1, int roll2) {
+    return backgammon_game_get_actions_with_map(game, color, roll1, roll2, NULL);
+}
+
+int backgammon_game_get_non_equivalent_actions(const struct backgammon_game_t *game,
+                                               backgammon_move_t *result, backgammon_color_t color,
+                                               int roll1, int roll2) {
+    int n = 0;
+    backgammon_hash_map_t map;
+    backgammon_hash_map_init(&map, roll1 == roll2 ? 64 : 16);
+    backgammon_action_t *root =
+        backgammon_game_get_actions_with_map(game, color, roll1, roll2, &map);
+    backgammon_move_t empty;
+    memset(&empty, 0, sizeof(empty));
+    for (size_t i = 0; i < map.num_buckets; i++) {
+        backgammon_linked_list_t *node = map.buckets[i];
+        while (node != NULL) {
+            backgammon_action_t *action = (backgammon_action_t *)(node->value);
+            result[n++] = empty;
+            while (action != NULL && action->parent != NULL) {
+                result[n++] = action->move;
+                action = action->parent;
+            }
+            node = node->next;
+        }
+    }
+    for (int i = 0; i + i < n; i++) {
+        int j = n - i - 1;
+        backgammon_move_t temp = result[i];
+        result[i] = result[j];
+        result[j] = temp;
+    }
+    backgammon_action_free(root);
+    backgammon_hash_map_free(&map);
+    return n;
 }
 
 void backgammon_action_free(backgammon_action_t *tree) {
@@ -438,12 +614,14 @@ void backgammon_game_reverse_features(double *vec) {
     backgammon_swap_double(vec[196], vec[197]);
 }
 
+#undef backgammon_swap_double
+
 int backgammon_game_encode_action(const backgammon_game_t *game, backgammon_color_t color,
                                   const backgammon_action_t **path, int num_moves, double *vec) {
     backgammon_game_t new_game;
     memcpy(&new_game, game, sizeof(backgammon_game_t));
     for (int i = 0; i < num_moves; ++i) {
-        backgammon_game_move(&new_game, color, path[i]->from, path[i]->to);
+        backgammon_game_move(&new_game, color, path[i]->move.from, path[i]->move.to);
     }
     /* 执行动作后切换到对手角度进行状态编码 */
     return backgammon_game_encode(&new_game, backgammon_get_opponent(color), vec);
@@ -462,37 +640,37 @@ int backgammon_game_encode_moves(const struct backgammon_game_t *game, backgammo
 
 void backgammon_game_print(FILE *out, const backgammon_game_t *game) {
     char buf[128];
+    int n = backgammon_game_to_string(buf, game);
+    buf[n] = 0;
+    fprintf(out, "%s\n", buf);
+}
+
+int backgammon_game_to_string(char *buf, const backgammon_game_t *game) {
     int offset = 0;
     for (int i = 0; i < BACKGAMMON_NUM_POSITIONS; ++i) {
-        buf[offset++] = ' ';
-        if (game->board[i].count > 0) {
-            if (game->board[i].color == BACKGAMMON_WHITE) {
-                buf[offset++] = 'W';
-            } else {
-                buf[offset++] = 'B';
-            }
-            if (game->board[i].count < 10) {
-                buf[offset++] = '0' + game->board[i].count;
-            } else {
-                buf[offset++] = 'A' + (game->board[i].count - 10);
-            }
-        } else {
-            buf[offset++] = ' ';
+        if (game->board[i].count == 0) {
+            continue;
+        }
+        if (offset > 0) {
             buf[offset++] = ' ';
         }
-    }
-    buf[offset] = 0;
-    fprintf(out, "= %s\n", buf);
-    offset = 0;
-    for (int i = 0; i < BACKGAMMON_NUM_POSITIONS; ++i) {
-        buf[offset++] = ' ';
         if (i < 10) {
-            buf[offset++] = ' ';
+            buf[offset++] = '0' + i;
         } else {
-            buf[offset++] = '0' + (i / 10);
+            buf[offset++] = '0' + i / 10;
+            buf[offset++] = '0' + i % 10;
         }
-        buf[offset++] = '0' + (i % 10);
+        buf[offset++] = ':';
+        if (game->board[i].color == BACKGAMMON_WHITE) {
+            buf[offset++] = 'W';
+        } else {
+            buf[offset++] = 'B';
+        }
+        if (game->board[i].count < 10) {
+            buf[offset++] = '0' + game->board[i].count;
+        } else {
+            buf[offset++] = 'A' + (game->board[i].count - 10);
+        }
     }
-    buf[offset] = 0;
-    fprintf(out, "= %s\n", buf);
+    return offset;
 }

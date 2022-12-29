@@ -97,6 +97,7 @@ class Env(gym.Env):
             info['winner'] = self.get_external_color(winner)
         else:
             info['winner'] = None
+        self.rounds += 1
         return features, reward, terminated, truncated, info
 
     def close(self):
@@ -105,7 +106,7 @@ class Env(gym.Env):
         pass
 
     def roll(self):
-        return self.np_random.integers(low=1, high=6, size=2)
+        return self.np_random.integers(low=1, high=7, size=2)
 
     def get_features(self, player, action: Action = None):
         player = self.get_internal_color(player)

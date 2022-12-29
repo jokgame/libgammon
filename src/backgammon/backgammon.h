@@ -101,6 +101,8 @@ typedef enum backgammon_error_t {
 #define BACKGAMMON_NUM_DICES 2     /* 骰子数量 */
 #define BACKGAMMON_NUM_CHECKERS 15 /* 每一方的棋子个数 */
 
+#define BACKGAMMON_NUM_FEATURES 198 /* 棋盘状态特征向量元素个数 */
+
 /**
  * @brief 格子信息，表示某个位置的棋子颜色和数量。
  */
@@ -110,14 +112,24 @@ typedef struct backgammon_grid_t {
 } backgammon_grid_t;
 
 /**
+ * @brief 移动信息
+ */
+typedef struct backgammon_move_s {
+    int from;
+    int steps;
+    int to;
+} backgammon_move_t;
+
+/**
  * @brief 移动操作构成的树节点。根据每一次投掷的骰子，获得玩家所有可以操作的移动行为，每个叶子
  * 节点及其所有祖先节点构成的路径（按顺序的多次移动操作）代表本轮的一种合法的动作。当 parent 为
  * null 时，忽略其 from 和 to，此时只是一个抽象根节点。
  */
 typedef struct backgammon_action_t {
-    int from, steps, to;                  /* move: from -> to */
+    backgammon_move_t move;               /* move */
     struct backgammon_action_t *children; /* first child */
     struct backgammon_action_t *sibling;  /* next sibling */
+    struct backgammon_action_t *parent;   /* parent node */
 } backgammon_action_t;
 
 /**
@@ -184,6 +196,19 @@ void backgammon_game_set_grid(struct backgammon_game_t *game, int pos, backgammo
 BACKGAMMON_API
 backgammon_action_t *backgammon_game_get_actions(const struct backgammon_game_t *game,
                                                  backgammon_color_t color, int roll1, int roll2);
+
+/**
+ * @brief 获取所有不等价的合法的动作。当两个动作之后棋盘状态完全相同则为等价动作。
+ *
+ * @param game 当前游戏状态
+ * @param color 当前玩家棋子颜色
+ * @param roll1, roll2 投掷的 2 个骰子的点数
+ * @return int 返回一个动作序列数组的长度。动作之间使用无效动作(steps=0)分割
+ */
+BACKGAMMON_API
+int backgammon_game_get_non_equivalent_actions(const struct backgammon_game_t *game,
+                                               backgammon_move_t *result, backgammon_color_t color,
+                                               int roll1, int roll2);
 
 /**
  * @brief 释放动作树
@@ -305,14 +330,8 @@ BACKGAMMON_API
 int backgammon_game_encode_action(const struct backgammon_game_t *game, backgammon_color_t color,
                                   const backgammon_action_t **path, int num_moves, double *vec);
 
-typedef struct backgammon_move_s {
-    int from;
-    int steps;
-    int to;
-} backgammon_move_t;
-
 /**
- * @brief 类似与 backgammon_game_encode_action，按 TD-Gammon 算法编码执行指定动作后的棋盘状态
+ * @brief 类似于 backgammon_game_encode_action，按 TD-Gammon 算法编码执行指定动作后的棋盘状态
  *
  * @param game 当前游戏状态
  * @param color 当前玩家棋子颜色
@@ -332,6 +351,15 @@ int backgammon_game_encode_moves(const struct backgammon_game_t *game, backgammo
  */
 BACKGAMMON_API
 void backgammon_game_print(FILE *out, const struct backgammon_game_t *game);
+
+/**
+ * @brief 打印游戏状态到 buf 中
+ *
+ * @param game 当前游戏状态
+ * @return int 返回字符串长度
+ */
+BACKGAMMON_API
+int backgammon_game_to_string(char *buf, const struct backgammon_game_t *game);
 
 #ifdef __cplusplus
 }

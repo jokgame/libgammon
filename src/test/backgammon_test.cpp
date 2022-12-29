@@ -48,7 +48,7 @@ static void print_actions(FILE *out, backgammon_action_t *tree) {
             char prefix[size * 4 - 3];
             memset(prefix, ' ', size * 4 - 4);
             prefix[size * 4 - 4] = 0;
-            fprintf(out, "%s(%d->%d)\n", prefix, parent->from, parent->to);
+            fprintf(out, "%s(%d->%d)\n", prefix, parent->move.from, parent->move.to);
         }
         if (parent->children) {
             path[size++] = parent->children;
@@ -65,9 +65,15 @@ static void print_actions(FILE *out, backgammon_action_t *tree) {
     }
 }
 
+std::string game_to_string(const backgammon_game_t *game) {
+    char buf[128];
+    int n = backgammon_game_to_string(buf, game);
+    return std::string(buf, buf + n);
+}
+
 class TDGammonModel {
   public:
-    static constexpr int64_t FEATURES = 198;
+    static constexpr int64_t FEATURES = BACKGAMMON_NUM_FEATURES;
     static constexpr int64_t OUTPUTS = 1;
 
   public:
@@ -99,13 +105,10 @@ class TDGammonModel {
 };
 
 struct VisitorContext {
-    struct Move {
-        int from, to;
-    };
     std::shared_ptr<TDGammonModel> model{nullptr};
     backgammon_game_t *game{nullptr};
     backgammon_color_t turn{BACKGAMMON_WHITE};
-    std::vector<Move> best_action{};
+    std::vector<backgammon_move_t> best_action{};
     double best_action_score{-1};
 
     void reset(backgammon_color_t turn_) {
@@ -182,11 +185,19 @@ int main(int argc, char **argv) {
     /* play games */
     int white_wins = 0;
     VisitorContext context;
+    backgammon_move_t moves[4096];
     for (int i = 0; i < N; ++i) {
         if (context.game) {
             backgammon_game_free(context.game);
         }
         backgammon_game_t *game = backgammon_game_new();
+        if (i == 0) {
+            double vec[BACKGAMMON_NUM_FEATURES];
+            backgammon_game_encode(game, BACKGAMMON_WHITE, vec);
+            fprintf(stderr, "white win rate for white turn: %f\n", model1->run(vec));
+            backgammon_game_encode(game, BACKGAMMON_BLACK, vec);
+            fprintf(stderr, "white win rate for black turn: %f\n", model1->run(vec));
+        }
         context.game = game;
         int roll[2];
         do {
@@ -215,66 +226,61 @@ int main(int argc, char **argv) {
             }
 
             /* get actions */
-            backgammon_action_t *actions =
-                backgammon_game_get_actions(game, turn, roll[0], roll[1]);
-            if (verbose > 1) {
-                fprintf(stderr, "---------------- ACTION ----------------\n");
-                print_actions(stderr, actions);
-                fprintf(stderr, "----------------------------------------\n");
-            }
+            int n = backgammon_game_get_non_equivalent_actions(game, moves, turn, roll[0], roll[1]);
 
             /* select action */
-            backgammon_action_visit(
-                actions,
-                [](void *ctx, const backgammon_action_t **path, int size) {
-                    VisitorContext *context = (VisitorContext *)ctx;
-                    double features[TDGammonModel::FEATURES];
-                    assert(backgammon_game_encode_action(context->game, context->turn, path, size,
-                                                         features) == TDGammonModel::FEATURES);
-                    double score = 0;
-                    switch (score_policy) {
-                    case ScorePolicyType::REVERSE_WHITE: {
-                        if (context->turn == BACKGAMMON_WHITE) {
-                            score = context->model->run(features);
-                        } else {
+            int begin_index = 0;
+            double features[TDGammonModel::FEATURES];
+            for (int i = 0; i < n; i++) {
+                if (moves[i].steps == 0) {
+                    if (i > begin_index) {
+                        const auto num_moves = i - begin_index;
+                        assert(backgammon_game_encode_moves(
+                            context.game, context.turn, moves + begin_index, num_moves, features));
+                        double score = 0;
+                        switch (score_policy) {
+                        case ScorePolicyType::REVERSE_WHITE: {
+                            if (context.turn == BACKGAMMON_WHITE) {
+                                score = context.model->run(features);
+                            } else {
+                                backgammon_game_reverse_features(features);
+                                score = 1.0 - context.model->run(features);
+                            }
+                        } break;
+
+                        case ScorePolicyType::REVERSE_BLACK: {
+                            if (context.turn == BACKGAMMON_BLACK) {
+                                score = context.model->run(features);
+                            } else {
+                                backgammon_game_reverse_features(features);
+                                score = 1.0 - context.model->run(features);
+                            }
+                        } break;
+
+                        case ScorePolicyType::REVERSE_AVERAGE: {
+                            score = context.model->run(features);
                             backgammon_game_reverse_features(features);
-                            score = 1.0 - context->model->run(features);
+                            score = (1.0 + score - context.model->run(features)) / 2.0;
+                        } break;
+
+                        default:
+                            score = context.model->run(features);
+                            break;
                         }
-                    } break;
-
-                    case ScorePolicyType::REVERSE_BLACK: {
-                        if (context->turn == BACKGAMMON_BLACK) {
-                            score = context->model->run(features);
-                        } else {
-                            backgammon_game_reverse_features(features);
-                            score = 1.0 - context->model->run(features);
+                        if (context.turn == BACKGAMMON_BLACK) {
+                            score = 1.0 - score;
                         }
-                    } break;
-
-                    case ScorePolicyType::REVERSE_AVERAGE: {
-                        score = context->model->run(features);
-                        backgammon_game_reverse_features(features);
-                        score = (1.0 + score - context->model->run(features)) / 2.0;
-                    } break;
-
-                    default:
-                        score = context->model->run(features);
-                        break;
-                    }
-                    if (context->turn == BACKGAMMON_BLACK) {
-                        score = 1.0 - score;
-                    }
-                    if (score > context->best_action_score) {
-                        context->best_action_score = score;
-                        context->best_action.resize(size);
-                        for (int i = 0; i < size; ++i) {
-                            context->best_action[i].from = path[i]->from;
-                            context->best_action[i].to = path[i]->to;
+                        if (score > context.best_action_score) {
+                            context.best_action_score = score;
+                            context.best_action.resize(num_moves);
+                            for (int index = begin_index; index < i; ++index) {
+                                context.best_action[index - begin_index] = moves[index];
+                            }
                         }
                     }
-                },
-                &context);
-            backgammon_action_free(actions);
+                    begin_index = i + 1;
+                }
+            }
 
             if (verbose > 0) {
                 backgammon_game_print(stderr, game);
@@ -288,7 +294,15 @@ int main(int argc, char **argv) {
             } else {
                 /* play action */
                 for (const auto &move : context.best_action) {
+                    if (verbose > 0) {
+                        std::cout << "- MOVE: " << move.from << "-" << move.steps << "->" << move.to
+                                  << std::endl;
+                    }
                     backgammon_game_move(game, turn, move.from, move.to);
+                    if (verbose > 0) {
+                        std::cout << "= MOVE: " << move.from << "-" << move.steps << "->" << move.to
+                                  << std::endl;
+                    }
                 }
                 if (verbose > 0) {
                     std::cout << "ROUNDS " << rounds << " " << player << ":"
