@@ -14,10 +14,30 @@ ios:
 		&& cmake --build . --config Release
 
 .PHONY: android
-android: _check_android_toolchain_cmake
-	@mkdir -p build/android
-	cd build/android \
-		&& cmake ../.. -DCMAKE_TOOLCHAIN_FILE=${ANDROID_TOOLCHAIN_CMAKE} \
+android: android-armeabi-v7a android-arm64-v8a android-x86 android-x86_64
+
+android-armeabi-v7a: _check_android_toolchain_cmake
+	@mkdir -p build/android/armeabi-v7a
+	cd build/android/armeabi-v7a \
+		&& cmake ../../.. -DANDROID_ABI=armeabi-v7a -DCMAKE_TOOLCHAIN_FILE=${ANDROID_TOOLCHAIN_CMAKE} \
+		&& cmake --build . --config Release
+
+android-armeabi-v8a: _check_android_toolchain_cmake
+	@mkdir -p build/android/armeabi-v8a
+	cd build/android/armeabi-v8a \
+		&& cmake ../../.. -DANDROID_ABI=armeabi-v8a -DCMAKE_TOOLCHAIN_FILE=${ANDROID_TOOLCHAIN_CMAKE} \
+		&& cmake --build . --config Release
+
+android-x86: _check_android_toolchain_cmake
+	@mkdir -p build/android/x86
+	cd build/android/x86 \
+		&& cmake ../../.. -DANDROID_ABI=x86 -DCMAKE_TOOLCHAIN_FILE=${ANDROID_TOOLCHAIN_CMAKE} \
+		&& cmake --build . --config Release
+
+android-x86_64: _check_android_toolchain_cmake
+	@mkdir -p build/android/x86_64
+	cd build/android/x86_64 \
+		&& cmake ../../.. -DANDROID_ABI=x86_64 -DCMAKE_TOOLCHAIN_FILE=${ANDROID_TOOLCHAIN_CMAKE} \
 		&& cmake --build . --config Release
 
 .PHONY: _check_android_toolchain_cmake

@@ -133,11 +133,11 @@ static void set_game_key_bit(backgammon_game_key_t *key, int offset, int value) 
         offset -= 64;
         data = &(key->second);
     }
-    uint64_t mask = value ? 1 << offset : ~(1 << offset);
+    uint64_t mask = 1 << offset;
     if (value == 1) {
         *data = (*data) | mask;
     } else {
-        *data = (*data) & mask;
+        *data = (*data) & (~mask);
     }
 }
 

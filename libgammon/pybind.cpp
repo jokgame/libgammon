@@ -157,9 +157,9 @@ class Game : public Stringer {
                 VisitorContext *context = (VisitorContext *)ctx;
                 std::vector<Move> moves(size);
                 for (int i = 0; i < size; ++i) {
-                    moves[i].pos = path[i]->from;
-                    moves[i].steps = path[i]->steps;
-                    moves[i].to = path[i]->to;
+                    moves[i].pos = path[i]->move.from;
+                    moves[i].steps = path[i]->move.steps;
+                    moves[i].to = path[i]->move.to;
                 }
                 context->actions.push_back(Action(moves));
                 std::cout << "  push action: " << context->actions.back().to_string() << std::endl;
