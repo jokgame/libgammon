@@ -22,10 +22,10 @@ android-armeabi-v7a: _check_android_toolchain_cmake
 		&& cmake ../../.. -DANDROID_ABI=armeabi-v7a -DCMAKE_TOOLCHAIN_FILE=${ANDROID_TOOLCHAIN_CMAKE} \
 		&& cmake --build . --config Release
 
-android-armeabi-v8a: _check_android_toolchain_cmake
-	@mkdir -p build/android/armeabi-v8a
-	cd build/android/armeabi-v8a \
-		&& cmake ../../.. -DANDROID_ABI=armeabi-v8a -DCMAKE_TOOLCHAIN_FILE=${ANDROID_TOOLCHAIN_CMAKE} \
+android-arm64-v8a: _check_android_toolchain_cmake
+	@mkdir -p build/android/arm64-v8a
+	cd build/android/arm64-v8a \
+		&& cmake ../../.. -DANDROID_ABI=arm64-v8a -DCMAKE_TOOLCHAIN_FILE=${ANDROID_TOOLCHAIN_CMAKE} \
 		&& cmake --build . --config Release
 
 android-x86: _check_android_toolchain_cmake
